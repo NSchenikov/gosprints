@@ -8,6 +8,8 @@ import (
     "encoding/json"
     "fmt"
     "log"
+	"strings"
+	"strconv"
     "net/http"
 )
 
@@ -22,6 +24,25 @@ var tasks = []Task{}
 func getTasksHandler(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-Type", "application/json")
     json.NewEncoder(w).Encode(tasks)
+}
+
+func writingTaskHandler(w http.ResponseWriter, r *http.Request) {
+
+	path := strings.TrimPrefix(r.URL.Path, "/tasks/")
+    idStr := strings.Split(path, "/")[0] // способ достать id из эндпоинта
+	id, _ := strconv.Atoi(idStr) //переводим string в int игнорируя второй параметр Atoi
+
+    for i, task := range tasks {
+		idx, _ := strconv.Atoi(task.ID)
+        if idx == id {
+            json.NewDecoder(r.Body).Decode(&tasks[i])
+            w.Header().Set("Content-Type", "application/json")
+            json.NewEncoder(w).Encode(tasks[i])
+            return
+        }
+    }
+
+    http.Error(w, "Пользователь не найден", http.StatusNotFound)
 }
 
 func createTaskHandler(w http.ResponseWriter, r *http.Request) {
@@ -41,10 +62,12 @@ func main() {
 
     r.HandleFunc("GET /tasks", getTasksHandler)
 	r.HandleFunc("POST /tasks", createTaskHandler)
+	r.HandleFunc("GET /tasks/{id}", writingTaskHandler)
 
     fmt.Println("Сервер запущен на http://localhost:8080")
     fmt.Println("Для проверки откройте браузер или используйте curl http://localhost:8080/tasks")
 	fmt.Println(`Для добавления задачи curl -X POST http://localhost:8080/tasks -H "Content-Type: application/json" -d '{"text": "Задача"}'`)
+	fmt.Println("Для чтения задачи curl http://localhost:8080/tasks/{id}")
     
     log.Fatal(http.ListenAndServe(":8080", r))
 }
