@@ -5,8 +5,6 @@ import (
     "fmt"
     "log"
     "net/http"
-
-    "github.com/gorilla/mux"
 )
 
 type Response struct {
@@ -19,8 +17,10 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-    r := mux.NewRouter()
-    r.HandleFunc("/", homeHandler).Methods("GET")
+
+	r := http.NewServeMux()
+
+    r.HandleFunc("GET /", homeHandler)
 
     fmt.Println("Сервер запущен на http://localhost:8080")
     fmt.Println("Для проверки откройте браузер или используйте curl:")
