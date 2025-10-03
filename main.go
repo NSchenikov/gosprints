@@ -42,7 +42,7 @@ func writingTaskHandler(w http.ResponseWriter, r *http.Request) {
         }
     }
 
-    http.Error(w, "Пользователь не найден", http.StatusNotFound)
+    http.Error(w, "Задача с указанным id не найдена", http.StatusNotFound)
 }
 
 func createTaskHandler(w http.ResponseWriter, r *http.Request) {
@@ -59,8 +59,8 @@ func createTaskHandler(w http.ResponseWriter, r *http.Request) {
 func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	path := strings.TrimPrefix(r.URL.Path, "/tasks/")
-    idStr := strings.Split(path, "/")[0] // способ достать id из эндпоинта
-	id, _ := strconv.Atoi(idStr) //переводим string в int игнорируя второй параметр Atoi
+    idStr := strings.Split(path, "/")[0] 
+	id, _ := strconv.Atoi(idStr) 
 
 	var updatedTask Task
 	json.NewDecoder(r.Body).Decode(&updatedTask)
@@ -75,7 +75,25 @@ func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
         }
     }
 
-    http.Error(w, "Пользователь не найден", http.StatusNotFound)
+    http.Error(w, "Задача с указанным id не найдена", http.StatusNotFound)
+}
+
+func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
+
+	path := strings.TrimPrefix(r.URL.Path, "/tasks/")
+    idStr := strings.Split(path, "/")[0]
+	id, _ := strconv.Atoi(idStr)
+
+    for i, task := range tasks {
+		idx, _ := strconv.Atoi(task.ID)
+        if idx == id {
+			tasks = append(tasks[:i], tasks[i+1:]...)
+            w.WriteHeader(http.StatusNoContent)
+            return
+        }
+    }
+
+    http.Error(w, "Задача с указанным id не найдена", http.StatusNotFound)
 }
 
 func main() {
@@ -86,12 +104,14 @@ func main() {
 	r.HandleFunc("POST /tasks", createTaskHandler)
 	r.HandleFunc("GET /tasks/{id}", writingTaskHandler)
 	r.HandleFunc("PUT /tasks/{id}", updateTaskHandler)
+	r.HandleFunc("DELETE /tasks/{id}", deleteTaskHandler)
 
     fmt.Println("Сервер запущен на http://localhost:8080")
     fmt.Println("Для проверки откройте браузер или используйте curl http://localhost:8080/tasks")
 	fmt.Println(`Для добавления задачи curl -X POST http://localhost:8080/tasks -H "Content-Type: application/json" -d '{"text": "Задача"}'`)
 	fmt.Println("Для чтения задачи curl http://localhost:8080/tasks/{id}")
 	fmt.Println(`Для обновления задачи curl -X PUT http://localhost:8080/tasks/{id} -H "Content-Type: application/json" -d '{"text": "Обновленный текст задачи"}'`)
+	fmt.Println("Для удаления задачи curl -X DELETE http://localhost:8080/tasks/{id}")
     
     log.Fatal(http.ListenAndServe(":8080", r))
 }
