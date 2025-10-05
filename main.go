@@ -1,6 +1,7 @@
 //sources used
 //1) https://purpleschool.ru/knowledge-base/article/creating-rest-api
 // 2) https://dev.to/kengowada/go-routing-101-handling-and-grouping-routes-with-nethttp-4k0e
+// 3) https://www.youtube.com/watch?v=k6kiNivraJ8
 
 package main
 
@@ -10,8 +11,10 @@ import (
     "log"
     "net/http"
     "database/sql"
+    "time"
 
     _ "github.com/lib/pq"
+    "github.com/dgrijalva/jwt-go"
 )
 
 
@@ -29,6 +32,8 @@ var user = User{
     Username: "1",
     Password: "1",
 }
+
+var mySignKey = []byte("johenews")
 
 var db *sql.DB
 
@@ -293,10 +298,44 @@ func deleteTaskHandler(db *sql.DB) http.HandlerFunc {
         w.Header().Set("Content-Type", "application/json")
         var u User
         json.NewDecoder(r.Body).Decode(&u)
-        fmt.Println("user: ", u)
+        // fmt.Println("user: ", u)
+        checkLogin(u)
     }
 
-    // checkLogin
+    func checkLogin(u User) string {
+        if user.Username != u.Username || user.Password != u.Password {
+            fmt.Println("NOT CORRECT")
+            err := "error"
+            return err
+        }
+
+        validToken, err := GenerateJWT()
+        fmt.Println(validToken)
+
+        if err != nil {
+            fmt.Println(err)
+        }
+
+        return validToken
+    }
+
+    func GenerateJWT() (string, error) {
+        token := jwt.New(jwt.SigningMethodHS256)
+
+        claims := token.Claims.(jwt.MapClaims)
+
+        claims["exp"] = time.Now().Add(time.Hour * 1000).Unix()
+        claims["user"] = "Johenews"
+        claims["authorized"] = true
+
+        tokenString, err := token.SignedString(mySignKey)
+
+        if err != nil {
+            log.Fatal(err)
+        }
+
+        return tokenString, nil
+    }
 
 func main() {
 
