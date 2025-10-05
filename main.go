@@ -75,24 +75,38 @@ func getTasksHandler(db *sql.DB) http.HandlerFunc {
     }
 }
 
-// func writingTaskHandler(w http.ResponseWriter, r *http.Request) {
+func writingTaskHandler(db *sql.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        
+        if r.Method != "GET" {
+            http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+            return
+        }
 
-// 	path := strings.TrimPrefix(r.URL.Path, "/tasks/")
-//     idStr := strings.Split(path, "/")[0] // способ достать id из эндпоинта
-// 	id, _ := strconv.Atoi(idStr) //переводим string в int игнорируя второй параметр Atoi
-
-//     for i, task := range tasks {
-// 		idx, _ := strconv.Atoi(task.ID)
-//         if idx == id {
-//             json.NewDecoder(r.Body).Decode(&tasks[i])
-//             w.Header().Set("Content-Type", "application/json")
-//             json.NewEncoder(w).Encode(tasks[i])
-//             return
-//         }
-//     }
-
-//     http.Error(w, "Задача с указанным id не найдена", http.StatusNotFound)
-// }
+        id := r.URL.Path[len("/tasks/"):]
+        if id == "" {
+            http.Error(w, "Task ID is required", http.StatusBadRequest)
+            return
+        }
+        
+        var task Task
+        err := db.QueryRow("SELECT id, text FROM \"Tasks\" WHERE id = $1", id).Scan(&task.ID, &task.Text)
+        if err != nil {
+            if err == sql.ErrNoRows {
+                fmt.Printf("Task with ID %s not found\n", id)
+                http.Error(w, "Task not found", http.StatusNotFound)
+                return
+            }
+            http.Error(w, "Database error", http.StatusInternalServerError)
+            return
+        }
+        
+        w.Header().Set("Content-Type", "application/json")
+        if err := json.NewEncoder(w).Encode(task); err != nil {
+            return
+        }
+    }
+}
 
 // func createTaskHandler(w http.ResponseWriter, r *http.Request) {
 //     var task Task
@@ -154,14 +168,14 @@ func main() {
 
     r.HandleFunc("GET /tasks", getTasksHandler(db))
 	// r.HandleFunc("POST /tasks", createTaskHandler)
-	// r.HandleFunc("GET /tasks/{id}", writingTaskHandler)
+	r.HandleFunc("GET /tasks/{id}", writingTaskHandler(db))
 	// r.HandleFunc("PUT /tasks/{id}", updateTaskHandler)
 	// r.HandleFunc("DELETE /tasks/{id}", deleteTaskHandler)
 
     fmt.Println("Сервер запущен на http://localhost:8080")
     fmt.Println("Для проверки откройте браузер или используйте curl http://localhost:8080/tasks")
 	// fmt.Println(`Для добавления задачи curl -X POST http://localhost:8080/tasks -H "Content-Type: application/json" -d '{"text": "Задача"}'`)
-	// fmt.Println("Для чтения задачи curl http://localhost:8080/tasks/{id}")
+	fmt.Println("Для чтения задачи curl http://localhost:8080/tasks/{id}")
 	// fmt.Println(`Для обновления задачи curl -X PUT http://localhost:8080/tasks/{id} -H "Content-Type: application/json" -d '{"text": "Обновленный текст задачи"}'`)
 	// fmt.Println("Для удаления задачи curl -X DELETE http://localhost:8080/tasks/{id}")
     
