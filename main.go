@@ -8,8 +8,6 @@ import (
     "encoding/json"
     "fmt"
     "log"
-	// "strings"
-	// "strconv"
     "net/http"
     "database/sql"
 
@@ -18,7 +16,7 @@ import (
 
 
 type Task struct {
-    ID    string `json:"id"`
+    ID    int `json:"id"`
     Text  string `json:"text"`
 }
 
@@ -108,16 +106,53 @@ func writingTaskHandler(db *sql.DB) http.HandlerFunc {
     }
 }
 
-// func createTaskHandler(w http.ResponseWriter, r *http.Request) {
-//     var task Task
-//     json.NewDecoder(r.Body).Decode(&task)
-//     task.ID = fmt.Sprintf("%d", len(tasks)+1)
-//     tasks = append(tasks, task)
+func createTaskHandler(db *sql.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        
+        if r.Method != "POST" {
+            http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+            return
+        }
 
-//     w.Header().Set("Content-Type", "application/json")
-//     w.WriteHeader(http.StatusCreated)
-//     json.NewEncoder(w).Encode(task)
-// }
+        if r.Header.Get("Content-Type") != "application/json" {
+            http.Error(w, "Content-Type must be application/json", http.StatusBadRequest)
+            return
+        }
+
+        var newTask struct {
+            Text string `json:"text"`
+        }
+        
+        if err := json.NewDecoder(r.Body).Decode(&newTask); err != nil {
+            http.Error(w, "Invalid JSON", http.StatusBadRequest)
+            return
+        }
+
+        if newTask.Text == "" {
+            http.Error(w, "Text field is required", http.StatusBadRequest)
+            return
+        }
+        
+        var id int
+        err := db.QueryRow("INSERT INTO \"Tasks\" (text) VALUES ($1) RETURNING id", newTask.Text).Scan(&id)
+        if err != nil {
+            http.Error(w, "Database error", http.StatusInternalServerError)
+            return
+        }
+        
+        task := Task{
+            ID:   id,
+            Text: newTask.Text,
+        }
+        
+        w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(http.StatusCreated)
+        if err := json.NewEncoder(w).Encode(task); err != nil {
+            return
+        }
+        
+    }
+}
 
 // func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -167,14 +202,14 @@ func main() {
 	r := http.NewServeMux()
 
     r.HandleFunc("GET /tasks", getTasksHandler(db))
-	// r.HandleFunc("POST /tasks", createTaskHandler)
+	r.HandleFunc("POST /tasks", createTaskHandler(db))
 	r.HandleFunc("GET /tasks/{id}", writingTaskHandler(db))
 	// r.HandleFunc("PUT /tasks/{id}", updateTaskHandler)
 	// r.HandleFunc("DELETE /tasks/{id}", deleteTaskHandler)
 
     fmt.Println("Сервер запущен на http://localhost:8080")
     fmt.Println("Для проверки откройте браузер или используйте curl http://localhost:8080/tasks")
-	// fmt.Println(`Для добавления задачи curl -X POST http://localhost:8080/tasks -H "Content-Type: application/json" -d '{"text": "Задача"}'`)
+	fmt.Println(`Для добавления задачи curl -X POST http://localhost:8080/tasks -H "Content-Type: application/json" -d '{"text": "Задача"}'`)
 	fmt.Println("Для чтения задачи curl http://localhost:8080/tasks/{id}")
 	// fmt.Println(`Для обновления задачи curl -X PUT http://localhost:8080/tasks/{id} -H "Content-Type: application/json" -d '{"text": "Обновленный текст задачи"}'`)
 	// fmt.Println("Для удаления задачи curl -X DELETE http://localhost:8080/tasks/{id}")
