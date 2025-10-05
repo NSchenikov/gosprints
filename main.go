@@ -11,6 +11,9 @@ import (
 	"strings"
 	"strconv"
     "net/http"
+    "database/sql"
+
+    _ "github.com/lib/pq"
 )
 
 
@@ -97,6 +100,24 @@ func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+
+    connStr := "postgresql://postgres:4840707101@localhost:8000/gosprints?sslmode=disable"
+
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		fmt.Println("Ошибка открытия соединения:", err)
+		return
+	}
+	defer db.Close()
+
+	// Проверка соединения
+	err = db.Ping()
+	if err != nil {
+		fmt.Println("Ошибка пинга базы данных:", err)
+		return
+	}
+
+	fmt.Println("Успешное подключение к PostgreSQL!")
 
 	r := http.NewServeMux()
 
