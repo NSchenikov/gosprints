@@ -20,6 +20,16 @@ type Task struct {
     Text  string `json:"text"`
 }
 
+type User struct {
+    Username string `json:"username"`
+    Password string `json:"password"`
+}
+
+var user = User{
+    Username: "1",
+    Password: "1",
+}
+
 var db *sql.DB
 
 func initDB() {
@@ -279,6 +289,15 @@ func deleteTaskHandler(db *sql.DB) http.HandlerFunc {
     }
 }
 
+    func login(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json")
+        var u User
+        json.NewDecoder(r.Body).Decode(&u)
+        fmt.Println("user: ", u)
+    }
+
+    // checkLogin
+
 func main() {
 
     initDB()
@@ -292,12 +311,17 @@ func main() {
 	r.HandleFunc("PUT /tasks/{id}", updateTaskHandler(db))
 	r.HandleFunc("DELETE /tasks/{id}", deleteTaskHandler(db))
 
+    r.HandleFunc("POST /login", login)
+
     fmt.Println("Сервер запущен на http://localhost:8080")
     fmt.Println("Для проверки откройте браузер или используйте curl http://localhost:8080/tasks")
+
+    fmt.Println(`Чтобы отправить пароль curl -X POST -H "Content-Type: application/json" -d '{"username":"ваш_логин", "password":"ваш_пароль"}' http://localhost:8080/login`)
+
 	fmt.Println(`Для добавления задачи curl -X POST http://localhost:8080/tasks -H "Content-Type: application/json" -d '{"text": "Задача"}'`)
 	fmt.Println("Для чтения задачи curl http://localhost:8080/tasks/{id}")
 	fmt.Println(`Для обновления задачи curl -X PUT http://localhost:8080/tasks/{id} -H "Content-Type: application/json" -d '{"text": "Обновленный текст задачи"}'`)
 	fmt.Println("Для удаления задачи curl -X DELETE http://localhost:8080/tasks/{id}")
-    
+
     log.Fatal(http.ListenAndServe(":8080", r))
 }
