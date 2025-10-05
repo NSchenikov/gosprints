@@ -154,27 +154,72 @@ func createTaskHandler(db *sql.DB) http.HandlerFunc {
     }
 }
 
-// func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
+func updateTaskHandler(db *sql.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        if r.Method != "PUT" {
+            http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+            return
+        }
 
-// 	path := strings.TrimPrefix(r.URL.Path, "/tasks/")
-//     idStr := strings.Split(path, "/")[0] 
-// 	id, _ := strconv.Atoi(idStr) 
+        if r.Header.Get("Content-Type") != "application/json" {
+            http.Error(w, "Content-Type must be application/json", http.StatusBadRequest)
+            return
+        }
 
-// 	var updatedTask Task
-// 	json.NewDecoder(r.Body).Decode(&updatedTask)
+        id := r.URL.Path[len("/tasks/"):]
+        if id == "" {
+            http.Error(w, "Task ID is required", http.StatusBadRequest)
+            return
+        }
 
-//     for i, task := range tasks {
-// 		idx, _ := strconv.Atoi(task.ID)
-//         if idx == id {
-//             tasks[i].Text = updatedTask.Text
-//             w.Header().Set("Content-Type", "application/json")
-//             json.NewEncoder(w).Encode(tasks[i])
-//             return
-//         }
-//     }
+        var updatedTask struct {
+            Text string `json:"text"`
+        }
 
-//     http.Error(w, "Задача с указанным id не найдена", http.StatusNotFound)
-// }
+        if err := json.NewDecoder(r.Body).Decode(&updatedTask); err != nil {
+            fmt.Printf("JSON decode error: %v\n", err)
+            http.Error(w, "Invalid JSON", http.StatusBadRequest)
+            return
+        }
+
+        if updatedTask.Text == "" {
+            http.Error(w, "Text field is required", http.StatusBadRequest)
+            return
+        }
+        
+        result, err := db.Exec("UPDATE \"Tasks\" SET text = $1 WHERE id = $2", updatedTask.Text, id)
+        if err != nil {
+                fmt.Printf("Database update error: %v\n", err)
+                http.Error(w, "Database error", http.StatusInternalServerError)
+                return
+        }
+
+        rowsAffected, err := result.RowsAffected()
+        if err != nil {
+            fmt.Printf("Error checking rows affected: %v\n", err)
+            http.Error(w, "Database error", http.StatusInternalServerError)
+            return
+        }
+
+        if rowsAffected == 0 {
+            fmt.Printf("Task with ID %s not found\n", id)
+            http.Error(w, "Task not found", http.StatusNotFound)
+            return
+        }
+
+        var task Task
+        err = db.QueryRow("SELECT id, text FROM \"Tasks\" WHERE id = $1", id).Scan(&task.ID, &task.Text)
+        if err != nil {
+            http.Error(w, "Database error", http.StatusInternalServerError)
+            return
+        }
+        
+        w.Header().Set("Content-Type", "application/json")
+        if err := json.NewEncoder(w).Encode(task); err != nil {
+            return
+        }
+    }
+}
 
 // func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -204,14 +249,14 @@ func main() {
     r.HandleFunc("GET /tasks", getTasksHandler(db))
 	r.HandleFunc("POST /tasks", createTaskHandler(db))
 	r.HandleFunc("GET /tasks/{id}", writingTaskHandler(db))
-	// r.HandleFunc("PUT /tasks/{id}", updateTaskHandler)
+	r.HandleFunc("PUT /tasks/{id}", updateTaskHandler(db))
 	// r.HandleFunc("DELETE /tasks/{id}", deleteTaskHandler)
 
     fmt.Println("Сервер запущен на http://localhost:8080")
     fmt.Println("Для проверки откройте браузер или используйте curl http://localhost:8080/tasks")
 	fmt.Println(`Для добавления задачи curl -X POST http://localhost:8080/tasks -H "Content-Type: application/json" -d '{"text": "Задача"}'`)
 	fmt.Println("Для чтения задачи curl http://localhost:8080/tasks/{id}")
-	// fmt.Println(`Для обновления задачи curl -X PUT http://localhost:8080/tasks/{id} -H "Content-Type: application/json" -d '{"text": "Обновленный текст задачи"}'`)
+	fmt.Println(`Для обновления задачи curl -X PUT http://localhost:8080/tasks/{id} -H "Content-Type: application/json" -d '{"text": "Обновленный текст задачи"}'`)
 	// fmt.Println("Для удаления задачи curl -X DELETE http://localhost:8080/tasks/{id}")
     
     log.Fatal(http.ListenAndServe(":8080", r))
