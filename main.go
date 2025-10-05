@@ -338,28 +338,39 @@ func deleteTaskHandler(db *sql.DB) http.HandlerFunc {
         return tokenString, nil
     }
 
-    func checkAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
+func checkAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-        if r.Header["Token"] != nil {
-
-            token, err := jwt.Parse(r.Header["Token"][0], func(token *jwt.Token) (interface{}, error) {
-                if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-                    return nil, fmt.Errorf("There was an error")
-                }
-                return mySignKey, nil
-            })
-
-            if err != nil {
-                fmt.Fprintf(w, err.Error())
+        w.Header().Set("Content-Type", "application/json")
+        
+        authHeader := r.Header.Get("Authorization")
+        if authHeader == "" {
+            fmt.Fprintf(w, `{"error": "Authorization header required"}`)
+            return
+        }
+        
+        if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
+            fmt.Fprintf(w, `{"error": "Invalid authorization format. Use: Bearer <token>"}`)
+            return
+        }
+        
+        tokenString := authHeader[7:]
+        
+        token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+            if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+                return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
             }
+            return mySignKey, nil
+        })
 
-            if token.Valid {
-                endpoint(w, r)
-            }
+        if err != nil {
+            fmt.Fprintf(w, `{"error": "Invalid token: %s"}`, err.Error())
+            return
+        }
+
+        if token.Valid {
+            endpoint(w, r)
         } else {
-
-            fmt.Fprintf(w, "Not Authorized")
+            fmt.Fprintf(w, `{"error": "Invalid token"}`)
         }
     })
 }
@@ -380,14 +391,28 @@ func main() {
     r.HandleFunc("POST /login", login)
 
     fmt.Println("Сервер запущен на http://localhost:8080")
-    fmt.Println("Для проверки откройте браузер или используйте curl http://localhost:8080/tasks")
 
-    fmt.Println(`Чтобы отправить пароль curl -X POST -H "Content-Type: application/json" -d '{"username":"ваш_логин", "password":"ваш_пароль"}' http://localhost:8080/login`)
+    fmt.Println("\n Получить токен:")
+    fmt.Println(`   curl -X POST http://localhost:8080/login -H "Content-Type: application/json" -d '{"username":"admin","password":"123456"}'`)
 
-	fmt.Println(`Для добавления задачи curl -X POST http://localhost:8080/tasks -H "Content-Type: application/json" -d '{"text": "Задача"}'`)
-	fmt.Println("Для чтения задачи curl http://localhost:8080/tasks/{id}")
-	fmt.Println(`Для обновления задачи curl -X PUT http://localhost:8080/tasks/{id} -H "Content-Type: application/json" -d '{"text": "Обновленный текст задачи"}'`)
-	fmt.Println("Для удаления задачи curl -X DELETE http://localhost:8080/tasks/{id}")
+    fmt.Println("\n Использовать токен для доступа:")
+    fmt.Println("   Заменить YOUR_TOKEN на полученный токен")
+
+    fmt.Println("\n 1) Все задачи:")
+    fmt.Println(`      curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8080/tasks`)
+
+    fmt.Println("   2) Добавить задачу:")
+    fmt.Println(`      curl -X POST http://localhost:8080/tasks -H "Authorization: Bearer YOUR_TOKEN" -H "Content-Type: application/json" -d '{"text":"Задача"}'`)
+
+    fmt.Println("   3) Прочитать задачу по id:")
+    fmt.Println(`      curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8080/tasks/1`)
+
+    fmt.Println("   4) Обновить задачу:")
+    fmt.Println(`      curl -X PUT http://localhost:8080/tasks/1 -H "Authorization: Bearer YOUR_TOKEN" -H "Content-Type: application/json" -d '{"text":"Новый текст"}'`)
+
+    fmt.Println("   5) Удалить задачу:")
+    fmt.Println(`      curl -X DELETE -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8080/tasks/1`)
+
 
     log.Fatal(http.ListenAndServe(":8080", r))
 }
