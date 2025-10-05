@@ -2,6 +2,7 @@
 //1) https://purpleschool.ru/knowledge-base/article/creating-rest-api
 // 2) https://dev.to/kengowada/go-routing-101-handling-and-grouping-routes-with-nethttp-4k0e
 // 3) https://www.youtube.com/watch?v=k6kiNivraJ8
+// 4) https://tutorialedge.net/golang/authenticating-golang-rest-api-with-jwts/
 
 package main
 
@@ -337,6 +338,32 @@ func deleteTaskHandler(db *sql.DB) http.HandlerFunc {
         return tokenString, nil
     }
 
+    func checkAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+        if r.Header["Token"] != nil {
+
+            token, err := jwt.Parse(r.Header["Token"][0], func(token *jwt.Token) (interface{}, error) {
+                if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+                    return nil, fmt.Errorf("There was an error")
+                }
+                return mySignKey, nil
+            })
+
+            if err != nil {
+                fmt.Fprintf(w, err.Error())
+            }
+
+            if token.Valid {
+                endpoint(w, r)
+            }
+        } else {
+
+            fmt.Fprintf(w, "Not Authorized")
+        }
+    })
+}
+
 func main() {
 
     initDB()
@@ -344,11 +371,11 @@ func main() {
 
 	r := http.NewServeMux()
 
-    r.HandleFunc("GET /tasks", getTasksHandler(db))
-	r.HandleFunc("POST /tasks", createTaskHandler(db))
-	r.HandleFunc("GET /tasks/{id}", writingTaskHandler(db))
-	r.HandleFunc("PUT /tasks/{id}", updateTaskHandler(db))
-	r.HandleFunc("DELETE /tasks/{id}", deleteTaskHandler(db))
+    r.Handle("GET /tasks", checkAuth(getTasksHandler(db)))
+	r.Handle("POST /tasks", checkAuth(createTaskHandler(db)))
+	r.Handle("GET /tasks/{id}", checkAuth(writingTaskHandler(db)))
+	r.Handle("PUT /tasks/{id}", checkAuth(updateTaskHandler(db)))
+	r.Handle("DELETE /tasks/{id}", checkAuth(deleteTaskHandler(db)))
 
     r.HandleFunc("POST /login", login)
 
