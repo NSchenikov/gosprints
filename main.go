@@ -25,14 +25,16 @@ type Task struct {
 }
 
 type User struct {
+    ID       int `json:"id"`
     Username string `json:"username"`
     Password string `json:"password"`
 }
 
-var user = User{
-    Username: "1",
-    Password: "1",
-}
+// var user = User{
+//     ID: 1,
+//     Username: "1",
+//     Password: "1",
+// }
 
 var mySignKey = []byte("johenews")
 
@@ -62,7 +64,7 @@ func getTasksHandler(db *sql.DB) http.HandlerFunc {
         
         rows, err := db.Query("SELECT id, text FROM \"Tasks\"") //уточняем что таблица называется Tasks
         if err != nil {
-            http.Error(w, "Database error", http.StatusInternalServerError)
+            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
             return
         }
         defer rows.Close()
@@ -71,14 +73,14 @@ func getTasksHandler(db *sql.DB) http.HandlerFunc {
         for rows.Next() {
             var task Task
             if err := rows.Scan(&task.ID, &task.Text); err != nil {
-                http.Error(w, "Database error", http.StatusInternalServerError)
+                http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
                 return
             }
             tasks = append(tasks, task)
         }
         
         if err = rows.Err(); err != nil {
-            http.Error(w, "Database error", http.StatusInternalServerError)
+            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
             return
         }
         
@@ -111,7 +113,7 @@ func writingTaskHandler(db *sql.DB) http.HandlerFunc {
                 http.Error(w, "Task not found", http.StatusNotFound)
                 return
             }
-            http.Error(w, "Database error", http.StatusInternalServerError)
+            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
             return
         }
         
@@ -152,7 +154,7 @@ func createTaskHandler(db *sql.DB) http.HandlerFunc {
         var id int
         err := db.QueryRow("INSERT INTO \"Tasks\" (text) VALUES ($1) RETURNING id", newTask.Text).Scan(&id)
         if err != nil {
-            http.Error(w, "Database error", http.StatusInternalServerError)
+            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
             return
         }
         
@@ -206,14 +208,14 @@ func updateTaskHandler(db *sql.DB) http.HandlerFunc {
         result, err := db.Exec("UPDATE \"Tasks\" SET text = $1 WHERE id = $2", updatedTask.Text, id)
         if err != nil {
                 fmt.Printf("Database update error: %v\n", err)
-                http.Error(w, "Database error", http.StatusInternalServerError)
+                http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
                 return
         }
 
         rowsAffected, err := result.RowsAffected()
         if err != nil {
             fmt.Printf("Error checking rows affected: %v\n", err)
-            http.Error(w, "Database error", http.StatusInternalServerError)
+            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
             return
         }
 
@@ -226,7 +228,7 @@ func updateTaskHandler(db *sql.DB) http.HandlerFunc {
         var task Task
         err = db.QueryRow("SELECT id, text FROM \"Tasks\" WHERE id = $1", id).Scan(&task.ID, &task.Text)
         if err != nil {
-            http.Error(w, "Database error", http.StatusInternalServerError)
+            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
             return
         }
         
@@ -259,21 +261,21 @@ func deleteTaskHandler(db *sql.DB) http.HandlerFunc {
                 return
             }
             fmt.Printf("Database select error: %v\n", err)
-            http.Error(w, "Database error", http.StatusInternalServerError)
+            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
             return
         }
         
         result, err := db.Exec("DELETE FROM \"Tasks\" WHERE id = $1", id)
         if err != nil {
                 fmt.Printf("Database delete error: %v\n", err)
-                http.Error(w, "Database error", http.StatusInternalServerError)
+                http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
                 return
         }
 
         rowsAffected, err := result.RowsAffected()
         if err != nil {
             fmt.Printf("Error checking rows affected: %v\n", err)
-            http.Error(w, "Database error", http.StatusInternalServerError)
+            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
             return
         }
 
@@ -295,38 +297,118 @@ func deleteTaskHandler(db *sql.DB) http.HandlerFunc {
     }
 }
 
-    func login(w http.ResponseWriter, r *http.Request) {
+func registerUser(db *sql.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Content-Type", "application/json")
-        var u User
-        json.NewDecoder(r.Body).Decode(&u)
-        // fmt.Println("user: ", u)
-        checkLogin(u)
-    }
-
-    func checkLogin(u User) string {
-        if user.Username != u.Username || user.Password != u.Password {
-            fmt.Println("NOT CORRECT")
-            err := "error"
-            return err
+        
+        if r.Method != "POST" {
+            http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+            return
         }
 
-        validToken, err := GenerateJWT()
-        fmt.Println(validToken)
+        var newUser struct {
+            Username string `json:"username"`
+            Password string `json:"password"`
+        }
+        
+        if err := json.NewDecoder(r.Body).Decode(&newUser); err != nil {
+            http.Error(w, "Invalid JSON", http.StatusBadRequest)
+            return
+        }
 
+        if newUser.Username == "" || newUser.Password == "" {
+            http.Error(w, "Username and password are required", http.StatusBadRequest)
+            return
+        }
+
+        var id int
+        err := db.QueryRow(
+            "INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id", 
+            newUser.Username, 
+            newUser.Password,
+        ).Scan(&id)
+        
         if err != nil {
-            fmt.Println(err)
+            w.WriteHeader(http.StatusInternalServerError)
+            json.NewEncoder(w).Encode(map[string]string{
+                "error": "Database error: " + err.Error(),
+            })
+            return
         }
 
-        return validToken
+        user := User{
+            ID:       id,
+            Username: newUser.Username,
+        }
+        
+        w.WriteHeader(http.StatusCreated)
+        json.NewEncoder(w).Encode(user)
+    }
+}
+
+func login(db *sql.DB) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Content-Type", "application/json")
+        
+        var u User
+        if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
+            http.Error(w, "Invalid JSON", http.StatusBadRequest)
+            return
+        }
+        
+        token, err := checkLogin(db, u)
+        if err != nil {
+            w.WriteHeader(http.StatusUnauthorized)
+            json.NewEncoder(w).Encode(map[string]string{
+                "error": "Invalid credentials",
+            })
+            return
+        }
+        
+        json.NewEncoder(w).Encode(map[string]string{
+            "token": token,
+            "status": "success",
+        })
+    }
+}
+
+    func checkLogin(db *sql.DB, u User) (string, error) {
+        var dbUser User
+        var storedPassword string
+        
+        // поиск пользователя по db
+        err := db.QueryRow(
+            "SELECT id, username, password FROM users WHERE username = $1", 
+            u.Username,
+        ).Scan(&dbUser.ID, &dbUser.Username, &storedPassword)
+        
+        if err != nil {
+            if err == sql.ErrNoRows {
+                return "", fmt.Errorf("user not found")
+            }
+            return "", fmt.Errorf("database error: %v", err)
+        }
+        
+        if !CheckPassword(u.Password, storedPassword) {
+            return "", fmt.Errorf("invalid password")
+        }
+        
+        validToken, err := GenerateJWT(u.Username)
+        if err != nil {
+            return "", fmt.Errorf("error generating token: %v", err)
+        }
+        
+        fmt.Printf("User %s logged in successfully\n", u.Username)
+        return validToken, nil
     }
 
-    func GenerateJWT() (string, error) {
+    func GenerateJWT(username string) (string, error) {
         token := jwt.New(jwt.SigningMethodHS256)
 
         claims := token.Claims.(jwt.MapClaims)
 
         claims["exp"] = time.Now().Add(time.Hour * 1000).Unix()
-        claims["user"] = "Johenews"
+        claims["user"] = username
         claims["authorized"] = true
 
         tokenString, err := token.SignedString(mySignKey)
@@ -336,6 +418,10 @@ func deleteTaskHandler(db *sql.DB) http.HandlerFunc {
         }
 
         return tokenString, nil
+    }
+
+    func CheckPassword(inputPassword, storedPassword string) bool {
+        return inputPassword == storedPassword
     }
 
 func checkAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
@@ -388,10 +474,12 @@ func main() {
 	r.Handle("PUT /tasks/{id}", checkAuth(updateTaskHandler(db)))
 	r.Handle("DELETE /tasks/{id}", checkAuth(deleteTaskHandler(db)))
 
-    r.HandleFunc("POST /login", login)
+    r.HandleFunc("POST /login", login(db))
+    r.HandleFunc("POST /register", registerUser(db))
 
     fmt.Println("Сервер запущен на http://localhost:8080")
 
+    fmt.Println(`Регистрация curl -X POST http://localhost:8080/register -H "Content-Type: application/json" -d '{"username":"testuser", "password":"password123"}'`)
     fmt.Println("\n Получить токен:")
     fmt.Println(`   curl -X POST http://localhost:8080/login -H "Content-Type: application/json" -d '{"username":"admin","password":"123456"}'`)
 
