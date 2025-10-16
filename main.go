@@ -16,24 +16,20 @@ import (
 
     _ "github.com/lib/pq"
     "github.com/dgrijalva/jwt-go"
+
+    "gosprints/internal/models"
 )
 
 
-type Task struct {
-    ID    int `json:"id"`
-    Text  string `json:"text"`
-}
+// type Task struct {
+//     ID    int `json:"id"`
+//     Text  string `json:"text"`
+// }
 
-type User struct {
-    ID       int `json:"id"`
-    Username string `json:"username"`
-    Password string `json:"password"`
-}
-
-// var user = User{
-//     ID: 1,
-//     Username: "1",
-//     Password: "1",
+// type User struct {
+//     ID       int `json:"id"`
+//     Username string `json:"username"`
+//     Password string `json:"password"`
 // }
 
 var mySignKey = []byte("johenews")
@@ -69,9 +65,9 @@ func getTasksHandler(db *sql.DB) http.HandlerFunc {
         }
         defer rows.Close()
 
-        var tasks []Task
+        var tasks []models.Task
         for rows.Next() {
-            var task Task
+            var task models.Task
             if err := rows.Scan(&task.ID, &task.Text); err != nil {
                 http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
                 return
@@ -105,7 +101,7 @@ func writingTaskHandler(db *sql.DB) http.HandlerFunc {
             return
         }
         
-        var task Task
+        var task models.Task
         err := db.QueryRow("SELECT id, text FROM \"Tasks\" WHERE id = $1", id).Scan(&task.ID, &task.Text)
         if err != nil {
             if err == sql.ErrNoRows {
@@ -158,7 +154,7 @@ func createTaskHandler(db *sql.DB) http.HandlerFunc {
             return
         }
         
-        task := Task{
+        task := models.Task{
             ID:   id,
             Text: newTask.Text,
         }
@@ -225,7 +221,7 @@ func updateTaskHandler(db *sql.DB) http.HandlerFunc {
             return
         }
 
-        var task Task
+        var task models.Task
         err = db.QueryRow("SELECT id, text FROM \"Tasks\" WHERE id = $1", id).Scan(&task.ID, &task.Text)
         if err != nil {
             http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
@@ -252,7 +248,7 @@ func deleteTaskHandler(db *sql.DB) http.HandlerFunc {
             return
         }
 
-        var task Task
+        var task models.Task
         err := db.QueryRow("SELECT id, text FROM \"Tasks\" WHERE id = $1", id).Scan(&task.ID, &task.Text)
         if err != nil {
             if err == sql.ErrNoRows {
@@ -336,7 +332,7 @@ func registerUser(db *sql.DB) http.HandlerFunc {
             return
         }
 
-        user := User{
+        user := models.User{
             ID:       id,
             Username: newUser.Username,
         }
@@ -350,7 +346,7 @@ func login(db *sql.DB) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Content-Type", "application/json")
         
-        var u User
+        var u models.User
         if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
             http.Error(w, "Invalid JSON", http.StatusBadRequest)
             return
@@ -372,8 +368,8 @@ func login(db *sql.DB) http.HandlerFunc {
     }
 }
 
-    func checkLogin(db *sql.DB, u User) (string, error) {
-        var dbUser User
+    func checkLogin(db *sql.DB, u models.User) (string, error) {
+        var dbUser models.User
         var storedPassword string
         
         // поиск пользователя по db
