@@ -12,27 +12,15 @@ import (
     "log"
     "net/http"
     "database/sql"
-    "time"
 
     _ "github.com/lib/pq"
     "github.com/dgrijalva/jwt-go"
 
     "gosprints/internal/models"
+    "gosprints/pkg/auth"
 )
 
-
-// type Task struct {
-//     ID    int `json:"id"`
-//     Text  string `json:"text"`
-// }
-
-// type User struct {
-//     ID       int `json:"id"`
-//     Username string `json:"username"`
-//     Password string `json:"password"`
-// }
-
-var mySignKey = []byte("johenews")
+// var mySignKey = []byte("johenews")
 
 var db *sql.DB
 
@@ -389,7 +377,7 @@ func login(db *sql.DB) http.HandlerFunc {
             return "", fmt.Errorf("invalid password")
         }
         
-        validToken, err := GenerateJWT(u.Username)
+        validToken, err := auth.GenerateJWT(u.Username)
         if err != nil {
             return "", fmt.Errorf("error generating token: %v", err)
         }
@@ -398,23 +386,23 @@ func login(db *sql.DB) http.HandlerFunc {
         return validToken, nil
     }
 
-    func GenerateJWT(username string) (string, error) {
-        token := jwt.New(jwt.SigningMethodHS256)
+    // func GenerateJWT(username string) (string, error) {
+    //     token := jwt.New(jwt.SigningMethodHS256)
 
-        claims := token.Claims.(jwt.MapClaims)
+    //     claims := token.Claims.(jwt.MapClaims)
 
-        claims["exp"] = time.Now().Add(time.Hour * 1000).Unix()
-        claims["user"] = username
-        claims["authorized"] = true
+    //     claims["exp"] = time.Now().Add(time.Hour * 1000).Unix()
+    //     claims["user"] = username
+    //     claims["authorized"] = true
 
-        tokenString, err := token.SignedString(mySignKey)
+    //     tokenString, err := token.SignedString(mySignKey)
 
-        if err != nil {
-            log.Fatal(err)
-        }
+    //     if err != nil {
+    //         log.Fatal(err)
+    //     }
 
-        return tokenString, nil
-    }
+    //     return tokenString, nil
+    // }
 
     func CheckPassword(inputPassword, storedPassword string) bool {
         return inputPassword == storedPassword
@@ -441,7 +429,7 @@ func checkAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
             if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
                 return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
             }
-            return mySignKey, nil
+            return auth.GetSignKey(), nil
         })
 
         if err != nil {
