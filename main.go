@@ -13,30 +13,29 @@ import (
     "net/http"
     "database/sql"
 
-    _ "github.com/lib/pq"
     "github.com/dgrijalva/jwt-go"
 
     "gosprints/internal/models"
     "gosprints/pkg/auth"
+    "gosprints/pkg/database"
 )
 
-// var mySignKey = []byte("johenews")
 
-var db *sql.DB
+// var db *sql.DB
 
-func initDB() {
-    connStr := "postgresql://postgres:4840707101@localhost:8000/gosprints?sslmode=disable"
-    var err error
-    db, err = sql.Open("postgres", connStr)
-    if err != nil {
-        log.Fatal("Error opening database:", err)
-    }
+// func initDB() {
+//     connStr := "postgresql://postgres:4840707101@localhost:8000/gosprints?sslmode=disable"
+//     var err error
+//     db, err = sql.Open("postgres", connStr)
+//     if err != nil {
+//         log.Fatal("Error opening database:", err)
+//     }
 
-    if err = db.Ping(); err != nil {
-        log.Fatal("Error connecting to database:", err)
-    }
-    fmt.Println("Connected to PostgreSQL!")
-}
+//     if err = db.Ping(); err != nil {
+//         log.Fatal("Error connecting to database:", err)
+//     }
+//     fmt.Println("Connected to PostgreSQL!")
+// }
 
 func getTasksHandler(db *sql.DB) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
@@ -386,24 +385,6 @@ func login(db *sql.DB) http.HandlerFunc {
         return validToken, nil
     }
 
-    // func GenerateJWT(username string) (string, error) {
-    //     token := jwt.New(jwt.SigningMethodHS256)
-
-    //     claims := token.Claims.(jwt.MapClaims)
-
-    //     claims["exp"] = time.Now().Add(time.Hour * 1000).Unix()
-    //     claims["user"] = username
-    //     claims["authorized"] = true
-
-    //     tokenString, err := token.SignedString(mySignKey)
-
-    //     if err != nil {
-    //         log.Fatal(err)
-    //     }
-
-    //     return tokenString, nil
-    // }
-
     func CheckPassword(inputPassword, storedPassword string) bool {
         return inputPassword == storedPassword
     }
@@ -447,7 +428,7 @@ func checkAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
 
 func main() {
 
-    initDB()
+    db := database.InitDB()
     defer db.Close()
 
 	r := http.NewServeMux()
