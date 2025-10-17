@@ -18,59 +18,23 @@ import (
     "gosprints/internal/models"
     "gosprints/pkg/auth"
     "gosprints/pkg/database"
+    "gosprints/internal/repositories"
 )
 
-
-// var db *sql.DB
-
-// func initDB() {
-//     connStr := "postgresql://postgres:4840707101@localhost:8000/gosprints?sslmode=disable"
-//     var err error
-//     db, err = sql.Open("postgres", connStr)
-//     if err != nil {
-//         log.Fatal("Error opening database:", err)
-//     }
-
-//     if err = db.Ping(); err != nil {
-//         log.Fatal("Error connecting to database:", err)
-//     }
-//     fmt.Println("Connected to PostgreSQL!")
-// }
-
-func getTasksHandler(db *sql.DB) http.HandlerFunc {
+func getTasksHandler(taskRepo repositories.TaskRepository) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
-        
-        if r.Method != "GET" {
-            http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-            return
-        }
-        
-        rows, err := db.Query("SELECT id, text FROM \"Tasks\"") //уточняем что таблица называется Tasks
-        if err != nil {
-            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
-            return
-        }
-        defer rows.Close()
+        tasks, err := taskRepo.GetAll()
 
-        var tasks []models.Task
-        for rows.Next() {
-            var task models.Task
-            if err := rows.Scan(&task.ID, &task.Text); err != nil {
-                http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
-                return
-            }
-            tasks = append(tasks, task)
-        }
-        
-        if err = rows.Err(); err != nil {
-            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
+        if err != nil {
+            fmt.Printf("Error getting tasks: %v\n", err)
+			http.Error(w, "Database error", http.StatusInternalServerError)
             return
         }
-        
+
+        fmt.Printf("Retrieved %d tasks from database\n", len(tasks))
         w.Header().Set("Content-Type", "application/json")
-        if err := json.NewEncoder(w).Encode(tasks); err != nil {
-            return
-        }
+		json.NewEncoder(w).Encode(tasks)
+        fmt.Println("All tasks response sent")
     }
 }
 
@@ -431,9 +395,11 @@ func main() {
     db := database.InitDB()
     defer db.Close()
 
+    taskRepo := repositories.NewTaskRepository(db)
+
 	r := http.NewServeMux()
 
-    r.Handle("GET /tasks", checkAuth(getTasksHandler(db)))
+    r.Handle("GET /tasks", checkAuth(getTasksHandler(taskRepo)))
 	r.Handle("POST /tasks", checkAuth(createTaskHandler(db)))
 	r.Handle("GET /tasks/{id}", checkAuth(writingTaskHandler(db)))
 	r.Handle("PUT /tasks/{id}", checkAuth(updateTaskHandler(db)))
