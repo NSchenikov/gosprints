@@ -2,11 +2,16 @@ package repositories
 
 import (
 	"database/sql"
+	// "fmt"
 	"gosprints/internal/models"
 )
 
 type TaskRepository interface {
 	GetAll() ([]models.Task, error)
+	GetByID(id int) (*models.Task, error)
+	// Create(task *models.Task) error
+	// Update(id int, text string) error
+	// Delete(id int) error
 }
 
 type taskRepository struct {
@@ -18,7 +23,7 @@ func NewTaskRepository(db *sql.DB) TaskRepository {
 }
 
 func (r *taskRepository) GetAll() ([]models.Task, error) {
-	rows, err := r.db.Query("SELECT id, text FROM \"Tasks\"")
+	rows, err := r.db.Query(`SELECT id, text FROM "Tasks"`)
 	if err != nil {
 		return nil, err
 	}
@@ -33,4 +38,15 @@ func (r *taskRepository) GetAll() ([]models.Task, error) {
 		tasks = append(tasks, task)
 	}
 	return tasks, nil
+}
+
+func (r *taskRepository) GetByID(id int) (*models.Task, error) {
+    
+    var task models.Task
+    err := r.db.QueryRow(`SELECT id, text FROM "Tasks" WHERE id = $1`, id).Scan(&task.ID, &task.Text)
+    
+    if err != nil {
+        return nil, err
+    }
+    return &task, nil
 }

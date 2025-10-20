@@ -38,36 +38,33 @@ func getTasksHandler(taskRepo repositories.TaskRepository) http.HandlerFunc {
     }
 }
 
-func writingTaskHandler(db *sql.DB) http.HandlerFunc {
+func getTaskByID(taskRepo repositories.TaskRepository) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
-        
-        if r.Method != "GET" {
-            http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-            return
-        }
+        path := r.URL.Path
+        idStr := path[len("/tasks/"):]
 
-        id := r.URL.Path[len("/tasks/"):]
-        if id == "" {
+        if idStr == "" {
             http.Error(w, "Task ID is required", http.StatusBadRequest)
             return
         }
-        
-        var task models.Task
-        err := db.QueryRow("SELECT id, text FROM \"Tasks\" WHERE id = $1", id).Scan(&task.ID, &task.Text)
+
+        var id int
+        if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+            http.Error(w, "Invalid task ID", http.StatusBadRequest)
+            return
+        }
+
+        task, err := taskRepo.GetByID(id)
         if err != nil {
-            if err == sql.ErrNoRows {
-                fmt.Printf("Task with ID %s not found\n", id)
-                http.Error(w, "Task not found", http.StatusNotFound)
-                return
-            }
-            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
+            w.WriteHeader(http.StatusNotFound)
+            json.NewEncoder(w).Encode(map[string]string{
+                "error": err.Error(),
+            })
             return
         }
-        
+
         w.Header().Set("Content-Type", "application/json")
-        if err := json.NewEncoder(w).Encode(task); err != nil {
-            return
-        }
+        json.NewEncoder(w).Encode(task)
     }
 }
 
@@ -401,7 +398,7 @@ func main() {
 
     r.Handle("GET /tasks", checkAuth(getTasksHandler(taskRepo)))
 	r.Handle("POST /tasks", checkAuth(createTaskHandler(db)))
-	r.Handle("GET /tasks/{id}", checkAuth(writingTaskHandler(db)))
+	r.Handle("GET /tasks/{id}", checkAuth(getTaskByID(taskRepo)))
 	r.Handle("PUT /tasks/{id}", checkAuth(updateTaskHandler(db)))
 	r.Handle("DELETE /tasks/{id}", checkAuth(deleteTaskHandler(db)))
 
