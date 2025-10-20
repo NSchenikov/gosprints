@@ -9,7 +9,7 @@ import (
 type TaskRepository interface {
 	GetAll() ([]models.Task, error)
 	GetByID(id int) (*models.Task, error)
-	// Create(task *models.Task) error
+	Create(task *models.Task) error
 	// Update(id int, text string) error
 	// Delete(id int) error
 }
@@ -49,4 +49,13 @@ func (r *taskRepository) GetByID(id int) (*models.Task, error) {
         return nil, err
     }
     return &task, nil
+}
+
+func (r *taskRepository) Create(task *models.Task) error {
+	    err := r.db.QueryRow(`INSERT INTO "Tasks" (text) VALUES ($1) RETURNING id`, task.Text).Scan(&task.ID)
+        if err != nil {
+            return err
+        }
+
+		return nil
 }

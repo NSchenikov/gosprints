@@ -31,10 +31,8 @@ func getTasksHandler(taskRepo repositories.TaskRepository) http.HandlerFunc {
             return
         }
 
-        fmt.Printf("Retrieved %d tasks from database\n", len(tasks))
         w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(tasks)
-        fmt.Println("All tasks response sent")
     }
 }
 
@@ -68,18 +66,8 @@ func getTaskByID(taskRepo repositories.TaskRepository) http.HandlerFunc {
     }
 }
 
-func createTaskHandler(db *sql.DB) http.HandlerFunc {
+func createTaskHandler(taskRepo repositories.TaskRepository) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
-        
-        if r.Method != "POST" {
-            http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-            return
-        }
-
-        if r.Header.Get("Content-Type") != "application/json" {
-            http.Error(w, "Content-Type must be application/json", http.StatusBadRequest)
-            return
-        }
 
         var newTask struct {
             Text string `json:"text"`
@@ -95,23 +83,18 @@ func createTaskHandler(db *sql.DB) http.HandlerFunc {
             return
         }
         
-        var id int
-        err := db.QueryRow("INSERT INTO \"Tasks\" (text) VALUES ($1) RETURNING id", newTask.Text).Scan(&id)
-        if err != nil {
-            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
-            return
-        }
-        
-        task := models.Task{
-            ID:   id,
-            Text: newTask.Text,
-        }
+        task := &models.Task{Text: newTask.Text}
+		err := taskRepo.Create(task)
+		if err != nil {
+			fmt.Printf("Error creating task: %v\n", err)
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			return
+		}
         
         w.Header().Set("Content-Type", "application/json")
         w.WriteHeader(http.StatusCreated)
-        if err := json.NewEncoder(w).Encode(task); err != nil {
-            return
-        }
+        json.NewEncoder(w).Encode(task)
+		fmt.Printf("Task created: ID=%d\n", task.ID)
         
     }
 }
@@ -397,7 +380,7 @@ func main() {
 	r := http.NewServeMux()
 
     r.Handle("GET /tasks", checkAuth(getTasksHandler(taskRepo)))
-	r.Handle("POST /tasks", checkAuth(createTaskHandler(db)))
+	r.Handle("POST /tasks", checkAuth(createTaskHandler(taskRepo)))
 	r.Handle("GET /tasks/{id}", checkAuth(getTaskByID(taskRepo)))
 	r.Handle("PUT /tasks/{id}", checkAuth(updateTaskHandler(db)))
 	r.Handle("DELETE /tasks/{id}", checkAuth(deleteTaskHandler(db)))
