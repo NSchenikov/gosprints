@@ -44,3 +44,4 @@ func (h *AuthHandler) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
         }
 	}
 }
+//
