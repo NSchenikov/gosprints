@@ -9,6 +9,7 @@ package main
 import (
     "encoding/json"
     "fmt"
+    "strings"
     "log"
     "net/http"
     "database/sql"
@@ -99,21 +100,18 @@ func createTaskHandler(taskRepo repositories.TaskRepository) http.HandlerFunc {
     }
 }
 
-func updateTaskHandler(db *sql.DB) http.HandlerFunc {
+func updateTaskHandler(taskRepo repositories.TaskRepository) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
-        if r.Method != "PUT" {
-            http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-            return
-        }
 
-        if r.Header.Get("Content-Type") != "application/json" {
-            http.Error(w, "Content-Type must be application/json", http.StatusBadRequest)
-            return
-        }
-
-        id := r.URL.Path[len("/tasks/"):]
-        if id == "" {
+        idStr := r.URL.Path[len("/tasks/"):]
+        if idStr == "" {
             http.Error(w, "Task ID is required", http.StatusBadRequest)
+            return
+        }
+
+        var id int
+        if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+            http.Error(w, "Invalid task ID", http.StatusBadRequest)
             return
         }
 
@@ -131,38 +129,24 @@ func updateTaskHandler(db *sql.DB) http.HandlerFunc {
             http.Error(w, "Text field is required", http.StatusBadRequest)
             return
         }
-        
-        result, err := db.Exec("UPDATE \"Tasks\" SET text = $1 WHERE id = $2", updatedTask.Text, id)
-        if err != nil {
-                fmt.Printf("Database update error: %v\n", err)
-                http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
-                return
-        }
 
-        rowsAffected, err := result.RowsAffected()
+        err := taskRepo.Update(id, updatedTask.Text)
         if err != nil {
-            fmt.Printf("Error checking rows affected: %v\n", err)
-            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
+            fmt.Printf("Error updating task: %v\n", err)
+            if strings.Contains(err.Error(), "not found") {
+                http.Error(w, "Task not found", http.StatusNotFound)
+            } else {
+                http.Error(w, "Database error", http.StatusInternalServerError)
+            }
             return
         }
 
-        if rowsAffected == 0 {
-            fmt.Printf("Task with ID %s not found\n", id)
-            http.Error(w, "Task not found", http.StatusNotFound)
-            return
-        }
-
-        var task models.Task
-        err = db.QueryRow("SELECT id, text FROM \"Tasks\" WHERE id = $1", id).Scan(&task.ID, &task.Text)
-        if err != nil {
-            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
-            return
-        }
-        
+        fmt.Printf("Task updated successfully: ID=%d\n", id)
         w.Header().Set("Content-Type", "application/json")
-        if err := json.NewEncoder(w).Encode(task); err != nil {
-            return
-        }
+        json.NewEncoder(w).Encode(map[string]string{
+            "status":  "success",
+            "message": "Task updated successfully",
+        })        
     }
 }
 
@@ -382,7 +366,7 @@ func main() {
     r.Handle("GET /tasks", checkAuth(getTasksHandler(taskRepo)))
 	r.Handle("POST /tasks", checkAuth(createTaskHandler(taskRepo)))
 	r.Handle("GET /tasks/{id}", checkAuth(getTaskByID(taskRepo)))
-	r.Handle("PUT /tasks/{id}", checkAuth(updateTaskHandler(db)))
+	r.Handle("PUT /tasks/{id}", checkAuth(updateTaskHandler(taskRepo)))
 	r.Handle("DELETE /tasks/{id}", checkAuth(deleteTaskHandler(db)))
 
     r.HandleFunc("POST /login", login(db))
