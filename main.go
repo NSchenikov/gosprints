@@ -11,50 +11,10 @@ import (
     "log"
     "net/http"
 
-    "github.com/dgrijalva/jwt-go"
-
-    "gosprints/pkg/auth"
     "gosprints/pkg/database"
     "gosprints/internal/repositories"
     "gosprints/internal/handlers"
 )
-
-func checkAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
-        
-        authHeader := r.Header.Get("Authorization")
-        if authHeader == "" {
-            fmt.Fprintf(w, `{"error": "Authorization header required"}`)
-            return
-        }
-        
-        if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
-            fmt.Fprintf(w, `{"error": "Invalid authorization format. Use: Bearer <token>"}`)
-            return
-        }
-        
-        tokenString := authHeader[7:]
-        
-        token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-            if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-                return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-            }
-            return auth.GetSignKey(), nil
-        })
-
-        if err != nil {
-            fmt.Fprintf(w, `{"error": "Invalid token: %s"}`, err.Error())
-            return
-        }
-
-        if token.Valid {
-            endpoint(w, r)
-        } else {
-            fmt.Fprintf(w, `{"error": "Invalid token"}`)
-        }
-    })
-}
 
 func main() {
 
@@ -69,11 +29,11 @@ func main() {
 
 	r := http.NewServeMux()
 
-    r.Handle("GET /tasks", checkAuth(taskHandler.GetTasks))
-	r.Handle("POST /tasks", checkAuth(taskHandler.CreateTask))
-	r.Handle("GET /tasks/{id}", checkAuth(taskHandler.GetTaskByID))
-	r.Handle("PUT /tasks/{id}", checkAuth(taskHandler.UpdateTask))
-	r.Handle("DELETE /tasks/{id}", checkAuth(taskHandler.DeleteTask))
+    r.Handle("GET /tasks", authHandler.AuthMiddleware(taskHandler.GetTasks))
+	r.Handle("POST /tasks", authHandler.AuthMiddleware(taskHandler.CreateTask))
+	r.Handle("GET /tasks/{id}", authHandler.AuthMiddleware(taskHandler.GetTaskByID))
+	r.Handle("PUT /tasks/{id}", authHandler.AuthMiddleware(taskHandler.UpdateTask))
+	r.Handle("DELETE /tasks/{id}", authHandler.AuthMiddleware(taskHandler.DeleteTask))
 
     r.HandleFunc("POST /login", authHandler.Login)
     r.HandleFunc("POST /register", authHandler.Register)
