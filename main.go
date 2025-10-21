@@ -12,7 +12,6 @@ import (
     "strings"
     "log"
     "net/http"
-    "database/sql"
 
     "github.com/dgrijalva/jwt-go"
 
@@ -197,14 +196,8 @@ func deleteTaskHandler(taskRepo repositories.TaskRepository) http.HandlerFunc {
     }
 }
 
-func registerUser(db *sql.DB) http.HandlerFunc {
+func registerUser(userRepo repositories.UserRepository) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
-        
-        if r.Method != "POST" {
-            http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-            return
-        }
 
         var newUser struct {
             Username string `json:"username"`
@@ -217,94 +210,70 @@ func registerUser(db *sql.DB) http.HandlerFunc {
         }
 
         if newUser.Username == "" || newUser.Password == "" {
-            http.Error(w, "Username and password are required", http.StatusBadRequest)
+            http.Error(w, "Username and password required", http.StatusBadRequest)
             return
         }
 
-        var id int
-        err := db.QueryRow(
-            "INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id", 
-            newUser.Username, 
-            newUser.Password,
-        ).Scan(&id)
-        
-        if err != nil {
-            w.WriteHeader(http.StatusInternalServerError)
-            json.NewEncoder(w).Encode(map[string]string{
-                "error": "Database error: " + err.Error(),
-            })
-            return
-        }
-
-        user := models.User{
-            ID:       id,
+        user := &models.User{
             Username: newUser.Username,
+            Password: newUser.Password,
         }
         
+        err := userRepo.Create(user)
+        if err != nil {
+            fmt.Printf("Error creating user: %v\n", err)
+            http.Error(w, "Database error", http.StatusInternalServerError)
+            return
+        }
+
+        
+        w.Header().Set("Content-Type", "application/json")
         w.WriteHeader(http.StatusCreated)
         json.NewEncoder(w).Encode(user)
+        fmt.Printf("User registered: ID=%d\n", user.ID)
     }
 }
 
-func login(db *sql.DB) http.HandlerFunc {
+func login(userRepo repositories.UserRepository) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Content-Type", "application/json")
         
-        var u models.User
-        if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
+        var credentials struct {
+            Username string `json:"username"`
+            Password string `json:"password"`
+        }
+
+        if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
             http.Error(w, "Invalid JSON", http.StatusBadRequest)
             return
         }
-        
-        token, err := checkLogin(db, u)
+
+        user, err := userRepo.GetByUsername(credentials.Username)
         if err != nil {
-            w.WriteHeader(http.StatusUnauthorized)
-            json.NewEncoder(w).Encode(map[string]string{
-                "error": "Invalid credentials",
-            })
+            fmt.Printf("User not found: %v\n", err)
+            http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+            return
+        }
+
+        if user.Password != credentials.Password {
+            fmt.Printf("Password mismatch for user: %s\n", credentials.Username)
+            http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+            return
+        }
+
+        token, err := auth.GenerateJWT(user.Username)
+        if err != nil {
+            fmt.Printf("Token generation error: %v\n", err)
+            http.Error(w, "Internal server error", http.StatusInternalServerError)
             return
         }
         
+        w.Header().Set("Content-Type", "application/json")
         json.NewEncoder(w).Encode(map[string]string{
             "token": token,
             "status": "success",
         })
     }
 }
-
-    func checkLogin(db *sql.DB, u models.User) (string, error) {
-        var dbUser models.User
-        var storedPassword string
-        
-        // поиск пользователя по db
-        err := db.QueryRow(
-            "SELECT id, username, password FROM users WHERE username = $1", 
-            u.Username,
-        ).Scan(&dbUser.ID, &dbUser.Username, &storedPassword)
-        
-        if err != nil {
-            if err == sql.ErrNoRows {
-                return "", fmt.Errorf("user not found")
-            }
-            return "", fmt.Errorf("database error: %v", err)
-        }
-        
-        if !CheckPassword(u.Password, storedPassword) {
-            return "", fmt.Errorf("invalid password")
-        }
-        
-        validToken, err := auth.GenerateJWT(u.Username)
-        if err != nil {
-            return "", fmt.Errorf("error generating token: %v", err)
-        }
-        
-        fmt.Printf("User %s logged in successfully\n", u.Username)
-        return validToken, nil
-    }
-
-    func CheckPassword(inputPassword, storedPassword string) bool {
-        return inputPassword == storedPassword
-    }
 
 func checkAuth(endpoint func(http.ResponseWriter, *http.Request)) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -349,6 +318,7 @@ func main() {
     defer db.Close()
 
     taskRepo := repositories.NewTaskRepository(db)
+    userRepo := repositories.NewUserRepository(db)
 
 	r := http.NewServeMux()
 
@@ -358,8 +328,8 @@ func main() {
 	r.Handle("PUT /tasks/{id}", checkAuth(updateTaskHandler(taskRepo)))
 	r.Handle("DELETE /tasks/{id}", checkAuth(deleteTaskHandler(taskRepo)))
 
-    r.HandleFunc("POST /login", login(db))
-    r.HandleFunc("POST /register", registerUser(db))
+    r.HandleFunc("POST /login", login(userRepo))
+    r.HandleFunc("POST /register", registerUser(userRepo))
 
     fmt.Println("Сервер запущен на http://localhost:8080")
 
