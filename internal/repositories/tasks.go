@@ -11,7 +11,7 @@ type TaskRepository interface {
 	GetByID(id int) (*models.Task, error)
 	Create(task *models.Task) error
 	Update(id int, text string) error
-	// Delete(id int) error
+	Delete(id int) error
 }
 
 type taskRepository struct {
@@ -61,7 +61,6 @@ func (r *taskRepository) Create(task *models.Task) error {
 }
 
 func (r *taskRepository) Update(id int, text string) error {
-    fmt.Printf("🎯 REPOSITORY Update: id=%d, text=%s\n", id, text)
     
     result, err := r.db.Exec(
         `UPDATE "Tasks" SET text = $1 WHERE id = $2`,
@@ -83,4 +82,26 @@ func (r *taskRepository) Update(id int, text string) error {
     
     fmt.Printf("Task updated: ID=%d\n", id)
     return nil
+}
+
+func (r *taskRepository) Delete(id int) error {
+
+	result, err := r.db.Exec(`DELETE FROM "Tasks" WHERE id = $1`, id)
+	if err != nil {
+            fmt.Printf("Database delete error: %v\n", err)
+            return err
+    }
+
+	rowsAffected, err := result.RowsAffected()
+    if err != nil {
+        return err
+    }
+
+    if rowsAffected == 0 {
+        return fmt.Errorf("task with ID %d not found", id)
+    }
+    
+    fmt.Printf("Task deleted: ID=%d\n", id)
+
+	return nil
 }

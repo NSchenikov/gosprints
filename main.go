@@ -150,49 +150,38 @@ func updateTaskHandler(taskRepo repositories.TaskRepository) http.HandlerFunc {
     }
 }
 
-func deleteTaskHandler(db *sql.DB) http.HandlerFunc {
+func deleteTaskHandler(taskRepo repositories.TaskRepository) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
-        if r.Method != "DELETE" {
-            http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-            return
-        }
 
-        id := r.URL.Path[len("/tasks/"):]
-        if id == "" {
+        idStr := r.URL.Path[len("/tasks/"):]
+        if idStr == "" {
             http.Error(w, "Task ID is required", http.StatusBadRequest)
             return
         }
 
-        var task models.Task
-        err := db.QueryRow("SELECT id, text FROM \"Tasks\" WHERE id = $1", id).Scan(&task.ID, &task.Text)
+        var id int
+        if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+            http.Error(w, "Invalid task ID", http.StatusBadRequest)
+            return
+        }
+
+        task, err := taskRepo.GetByID(id)
         if err != nil {
-            if err == sql.ErrNoRows {
-                fmt.Printf("Task with ID %s not found\n", id)
+            w.WriteHeader(http.StatusNotFound)
+            json.NewEncoder(w).Encode(map[string]string{
+                "error": err.Error(),
+            })
+            return
+        }
+
+        err = taskRepo.Delete(id)
+        if err != nil {
+            fmt.Printf("Error deleting task: %v\n", err)
+            if strings.Contains(err.Error(), "not found") {
                 http.Error(w, "Task not found", http.StatusNotFound)
-                return
+            } else {
+                http.Error(w, "Database error", http.StatusInternalServerError)
             }
-            fmt.Printf("Database select error: %v\n", err)
-            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
-            return
-        }
-        
-        result, err := db.Exec("DELETE FROM \"Tasks\" WHERE id = $1", id)
-        if err != nil {
-                fmt.Printf("Database delete error: %v\n", err)
-                http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
-                return
-        }
-
-        rowsAffected, err := result.RowsAffected()
-        if err != nil {
-            fmt.Printf("Error checking rows affected: %v\n", err)
-            http.Error(w, "Database error: " + err.Error(), http.StatusInternalServerError)
-            return
-        }
-
-        if rowsAffected == 0 {
-            fmt.Printf("Task with ID %s not found\n", id)
-            http.Error(w, "Task not found", http.StatusNotFound)
             return
         }
         
@@ -367,7 +356,7 @@ func main() {
 	r.Handle("POST /tasks", checkAuth(createTaskHandler(taskRepo)))
 	r.Handle("GET /tasks/{id}", checkAuth(getTaskByID(taskRepo)))
 	r.Handle("PUT /tasks/{id}", checkAuth(updateTaskHandler(taskRepo)))
-	r.Handle("DELETE /tasks/{id}", checkAuth(deleteTaskHandler(db)))
+	r.Handle("DELETE /tasks/{id}", checkAuth(deleteTaskHandler(taskRepo)))
 
     r.HandleFunc("POST /login", login(db))
     r.HandleFunc("POST /register", registerUser(db))
