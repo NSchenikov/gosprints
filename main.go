@@ -9,7 +9,6 @@ package main
 import (
     "encoding/json"
     "fmt"
-    "strings"
     "log"
     "net/http"
 
@@ -19,182 +18,8 @@ import (
     "gosprints/pkg/auth"
     "gosprints/pkg/database"
     "gosprints/internal/repositories"
+    "gosprints/internal/handlers"
 )
-
-func getTasksHandler(taskRepo repositories.TaskRepository) http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-        tasks, err := taskRepo.GetAll()
-
-        if err != nil {
-            fmt.Printf("Error getting tasks: %v\n", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-            return
-        }
-
-        w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(tasks)
-    }
-}
-
-func getTaskByID(taskRepo repositories.TaskRepository) http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-        path := r.URL.Path
-        idStr := path[len("/tasks/"):]
-
-        if idStr == "" {
-            http.Error(w, "Task ID is required", http.StatusBadRequest)
-            return
-        }
-
-        var id int
-        if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
-            http.Error(w, "Invalid task ID", http.StatusBadRequest)
-            return
-        }
-
-        task, err := taskRepo.GetByID(id)
-        if err != nil {
-            w.WriteHeader(http.StatusNotFound)
-            json.NewEncoder(w).Encode(map[string]string{
-                "error": err.Error(),
-            })
-            return
-        }
-
-        w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode(task)
-    }
-}
-
-func createTaskHandler(taskRepo repositories.TaskRepository) http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-
-        var newTask struct {
-            Text string `json:"text"`
-        }
-        
-        if err := json.NewDecoder(r.Body).Decode(&newTask); err != nil {
-            http.Error(w, "Invalid JSON", http.StatusBadRequest)
-            return
-        }
-
-        if newTask.Text == "" {
-            http.Error(w, "Text field is required", http.StatusBadRequest)
-            return
-        }
-        
-        task := &models.Task{Text: newTask.Text}
-		err := taskRepo.Create(task)
-		if err != nil {
-			fmt.Printf("Error creating task: %v\n", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-        
-        w.Header().Set("Content-Type", "application/json")
-        w.WriteHeader(http.StatusCreated)
-        json.NewEncoder(w).Encode(task)
-		fmt.Printf("Task created: ID=%d\n", task.ID)
-        
-    }
-}
-
-func updateTaskHandler(taskRepo repositories.TaskRepository) http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-
-        idStr := r.URL.Path[len("/tasks/"):]
-        if idStr == "" {
-            http.Error(w, "Task ID is required", http.StatusBadRequest)
-            return
-        }
-
-        var id int
-        if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
-            http.Error(w, "Invalid task ID", http.StatusBadRequest)
-            return
-        }
-
-        var updatedTask struct {
-            Text string `json:"text"`
-        }
-
-        if err := json.NewDecoder(r.Body).Decode(&updatedTask); err != nil {
-            fmt.Printf("JSON decode error: %v\n", err)
-            http.Error(w, "Invalid JSON", http.StatusBadRequest)
-            return
-        }
-
-        if updatedTask.Text == "" {
-            http.Error(w, "Text field is required", http.StatusBadRequest)
-            return
-        }
-
-        err := taskRepo.Update(id, updatedTask.Text)
-        if err != nil {
-            fmt.Printf("Error updating task: %v\n", err)
-            if strings.Contains(err.Error(), "not found") {
-                http.Error(w, "Task not found", http.StatusNotFound)
-            } else {
-                http.Error(w, "Database error", http.StatusInternalServerError)
-            }
-            return
-        }
-
-        fmt.Printf("Task updated successfully: ID=%d\n", id)
-        w.Header().Set("Content-Type", "application/json")
-        json.NewEncoder(w).Encode(map[string]string{
-            "status":  "success",
-            "message": "Task updated successfully",
-        })        
-    }
-}
-
-func deleteTaskHandler(taskRepo repositories.TaskRepository) http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-
-        idStr := r.URL.Path[len("/tasks/"):]
-        if idStr == "" {
-            http.Error(w, "Task ID is required", http.StatusBadRequest)
-            return
-        }
-
-        var id int
-        if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
-            http.Error(w, "Invalid task ID", http.StatusBadRequest)
-            return
-        }
-
-        task, err := taskRepo.GetByID(id)
-        if err != nil {
-            w.WriteHeader(http.StatusNotFound)
-            json.NewEncoder(w).Encode(map[string]string{
-                "error": err.Error(),
-            })
-            return
-        }
-
-        err = taskRepo.Delete(id)
-        if err != nil {
-            fmt.Printf("Error deleting task: %v\n", err)
-            if strings.Contains(err.Error(), "not found") {
-                http.Error(w, "Task not found", http.StatusNotFound)
-            } else {
-                http.Error(w, "Database error", http.StatusInternalServerError)
-            }
-            return
-        }
-        
-        w.Header().Set("Content-Type", "application/json")
-        w.WriteHeader(http.StatusOK)
-        if err := json.NewEncoder(w).Encode(map[string]interface{}{
-            "message": "Task deleted successfully",
-            "deleted_task": task,
-        }); err != nil {
-            fmt.Printf("JSON encoding error: %v\n", err)
-            return
-        }
-    }
-}
 
 func registerUser(userRepo repositories.UserRepository) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
@@ -320,13 +145,16 @@ func main() {
     taskRepo := repositories.NewTaskRepository(db)
     userRepo := repositories.NewUserRepository(db)
 
+    taskHandler := handlers.NewTaskHandler(taskRepo)
+	// authHandler := handlers.NewAuthHandler(userRepo)
+
 	r := http.NewServeMux()
 
-    r.Handle("GET /tasks", checkAuth(getTasksHandler(taskRepo)))
-	r.Handle("POST /tasks", checkAuth(createTaskHandler(taskRepo)))
-	r.Handle("GET /tasks/{id}", checkAuth(getTaskByID(taskRepo)))
-	r.Handle("PUT /tasks/{id}", checkAuth(updateTaskHandler(taskRepo)))
-	r.Handle("DELETE /tasks/{id}", checkAuth(deleteTaskHandler(taskRepo)))
+    r.Handle("GET /tasks", checkAuth(taskHandler.GetTasks))
+	r.Handle("POST /tasks", checkAuth(taskHandler.CreateTask))
+	r.Handle("GET /tasks/{id}", checkAuth(taskHandler.GetTaskByID))
+	r.Handle("PUT /tasks/{id}", checkAuth(taskHandler.UpdateTask))
+	r.Handle("DELETE /tasks/{id}", checkAuth(taskHandler.DeleteTask))
 
     r.HandleFunc("POST /login", login(userRepo))
     r.HandleFunc("POST /register", registerUser(userRepo))
