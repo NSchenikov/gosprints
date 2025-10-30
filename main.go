@@ -4,6 +4,7 @@
 // 3) https://www.youtube.com/watch?v=k6kiNivraJ8
 // 4) https://tutorialedge.net/golang/authenticating-golang-rest-api-with-jwts/
 // 5) https://www.youtube.com/watch?v=f9IrbW13C_c&t=29s
+// 6) https://www.youtube.com/watch?v=wHQBMDInWEg
 
 package main
 
