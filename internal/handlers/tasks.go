@@ -9,17 +9,18 @@ import (
 
 	// "gosprints/internal/models"
 	"gosprints/internal/repositories"
+	"gosprints/internal/queue"
 	// "context"
-	"gosprints/internal/services"
+	// "gosprints/internal/worker"
 )
 
 type TaskHandler struct {
 	taskRepo repositories.TaskRepository
-	wrk  *worker.WorkerPool
+	queue  *queue.TaskQueue
 }
 
-func NewTaskHandler(taskRepo repositories.TaskRepository, wrk *worker.WorkerPool) *TaskHandler {
-	return &TaskHandler{taskRepo: taskRepo, wrk: wrk}
+func NewTaskHandler(taskRepo repositories.TaskRepository, q *queue.TaskQueue) *TaskHandler {
+	return &TaskHandler{taskRepo: taskRepo, queue: q}
 }
 
 func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
@@ -31,11 +32,12 @@ func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	pendingCount := 0
 	for _, t := range tasks {
-		task := t
-		h.wrk.Submit(func() {
-			worker.Processing(task)
-		})
+		if t.Status == "pending" {
+			h.queue.Add(t)
+			pendingCount++
+		}
 	}
 
 	fmt.Printf("Retrieved %d tasks from database\n", len(tasks))
@@ -43,6 +45,11 @@ func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(tasks)
 	fmt.Println("All tasks response sent")
+}
+
+// посмотреть задачи
+func (h *TaskHandler) GetQueueStatus(w http.ResponseWriter, r *http.Request) {
+	json.NewEncoder(w).Encode(h.queue.GetAll())
 }
 
 // func (h *TaskHandler) GetTaskByID(w http.ResponseWriter, r *http.Request) {

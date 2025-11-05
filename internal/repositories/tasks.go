@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"database/sql"
-	// "fmt"
+	"fmt"
 	"gosprints/internal/models"
     "context"
 	// "github.com/jackc/pgx/v5/pgxpool"
@@ -15,6 +15,7 @@ type TaskRepository interface {
 	// Create(task *models.Task) error
 	// Update(id int, text string) error
 	// Delete(id int) error
+    UpdateStatus(ctx context.Context, id int, status string, startedAt, endedAt *string) error
 }
 
 type taskRepository struct {
@@ -30,7 +31,7 @@ func NewTaskRepository(db *sql.DB) TaskRepository {
 }
 
 func (r *taskRepository) GetAll(ctx context.Context) ([]models.Task, error) {
-	rows, err := r.db.Query(`SELECT id, text FROM "Tasks"`)
+	rows, err := r.db.Query(`SELECT id, text, status, created_at, started_at, ended_at FROM "Tasks" ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -39,12 +40,43 @@ func (r *taskRepository) GetAll(ctx context.Context) ([]models.Task, error) {
 	var tasks []models.Task
 	for rows.Next() {
 		var task models.Task
-		if err := rows.Scan(&task.ID, &task.Text); err != nil {
+        var startedAt, endedAt sql.NullTime
+		if err := rows.Scan(&task.ID, &task.Text, &task.Status, &task.CreatedAt, &startedAt, &endedAt); err != nil {
 			return nil, err
 		}
+
+        if startedAt.Valid {
+            task.StartedAt = startedAt.Time
+        }
+        if endedAt.Valid {
+            task.EndedAt = endedAt.Time
+        }
+
 		tasks = append(tasks, task)
 	}
 	return tasks, nil
+}
+
+func (r *taskRepository) UpdateStatus(ctx context.Context, id int, status string, startedAt, endedAt *string) error {
+	query := `UPDATE "Tasks" SET status=$1`
+	args := []interface{}{status}
+    paramCount := 1
+
+	if startedAt != nil {
+        paramCount++
+        query += fmt.Sprintf(`, started_at = $%d`, paramCount)
+        args = append(args, *startedAt)
+	}
+	if endedAt != nil {
+        paramCount++
+        query += fmt.Sprintf(`, ended_at = $%d`, paramCount)
+        args = append(args, *endedAt)
+	}
+    paramCount++
+    query += fmt.Sprintf(` WHERE id = $%d`, paramCount)
+    args = append(args, id)
+    _, err := r.db.ExecContext(ctx, query, args...)
+    return err
 }
 
 // func (r *taskRepository) GetByID(id int) (*models.Task, error) {

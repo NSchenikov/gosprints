@@ -18,7 +18,8 @@ import (
     "gosprints/pkg/database"
     "gosprints/internal/repositories"
     "gosprints/internal/handlers"
-    "gosprints/internal/services"
+    "gosprints/internal/worker"
+    "gosprints/internal/queue"
 )
 
 func main() {
@@ -29,9 +30,14 @@ func main() {
     taskRepo := repositories.NewTaskRepository(db)
     userRepo := repositories.NewUserRepository(db)
 
-    workerPool := worker.NewWorkerPool(5)
+    queue := queue.NewTaskQueue(100)
 
-    taskHandler := handlers.NewTaskHandler(taskRepo, workerPool)
+    for i := 1; i <= 3; i++ {
+		w := worker.NewWorker(i, taskRepo, queue)
+		w.Start()
+	}
+
+    taskHandler := handlers.NewTaskHandler(taskRepo, queue)
 	authHandler := handlers.NewAuthHandler(userRepo)
 
 	r := http.NewServeMux()
