@@ -5,6 +5,8 @@
 // 4) https://tutorialedge.net/golang/authenticating-golang-rest-api-with-jwts/
 // 5) https://www.youtube.com/watch?v=f9IrbW13C_c&t=29s
 // 6) https://www.youtube.com/watch?v=wHQBMDInWEg
+// 7) https://proglib.io/p/parallelizm-v-golang-i-workerpool-chast-1-2020-12-24
+// 8) https://proglib.io/p/parallelizm-v-golang-i-workerpool-chast-2-2020-12-26
 
 package main
 
@@ -16,6 +18,7 @@ import (
     "gosprints/pkg/database"
     "gosprints/internal/repositories"
     "gosprints/internal/handlers"
+    "gosprints/internal/services"
 )
 
 func main() {
@@ -26,16 +29,18 @@ func main() {
     taskRepo := repositories.NewTaskRepository(db)
     userRepo := repositories.NewUserRepository(db)
 
-    taskHandler := handlers.NewTaskHandler(taskRepo)
+    workerPool := worker.NewWorkerPool(5)
+
+    taskHandler := handlers.NewTaskHandler(taskRepo, workerPool)
 	authHandler := handlers.NewAuthHandler(userRepo)
 
 	r := http.NewServeMux()
 
     r.Handle("GET /tasks", authHandler.AuthMiddleware(taskHandler.GetTasks))
-	r.Handle("POST /tasks", authHandler.AuthMiddleware(taskHandler.CreateTask))
-	r.Handle("GET /tasks/{id}", authHandler.AuthMiddleware(taskHandler.GetTaskByID))
-	r.Handle("PUT /tasks/{id}", authHandler.AuthMiddleware(taskHandler.UpdateTask))
-	r.Handle("DELETE /tasks/{id}", authHandler.AuthMiddleware(taskHandler.DeleteTask)) //вынести в роутер
+	// r.Handle("POST /tasks", authHandler.AuthMiddleware(taskHandler.CreateTask))
+	// r.Handle("GET /tasks/{id}", authHandler.AuthMiddleware(taskHandler.GetTaskByID))
+	// r.Handle("PUT /tasks/{id}", authHandler.AuthMiddleware(taskHandler.UpdateTask))
+	// r.Handle("DELETE /tasks/{id}", authHandler.AuthMiddleware(taskHandler.DeleteTask)) //вынести в роутер
 
     r.HandleFunc("POST /login", authHandler.Login)
     r.HandleFunc("POST /register", authHandler.Register)
