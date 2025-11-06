@@ -10,7 +10,7 @@ import (
 type TaskRepository interface {
 	GetAll(ctx context.Context) ([]models.Task, error) //нужна асинхронная обработка
 	GetByID(id int) (*models.Task, error) //не нужна асинхронная обработка потому что нужно просто получить одну задачу из БД
-	// Create(task *models.Task) error //нужен processing, потому что появляется новая задача со статусом pending
+	Create(ctx context.Context, task *models.Task) (int, error) //нужен processing, потому что появляется новая задача со статусом pending
 	Update(id int, text string) error //не нужна асинхронная обработка потому что нужно просто изменить текст одной задачи
 	Delete(id int) error //не нужна асинхронная обработка потому что нужно просто удалить конкретную задачу из БД
     UpdateStatus(ctx context.Context, id int, status string, startedAt, endedAt *string) error
@@ -84,14 +84,18 @@ func (r *taskRepository) GetByID(id int) (*models.Task, error) {
     return &task, nil
 }
 
-// func (r *taskRepository) Create(task *models.Task) error {
-// 	    err := r.db.QueryRow(`INSERT INTO "Tasks" (text) VALUES ($1) RETURNING id`, task.Text).Scan(&task.ID)
-//         if err != nil {
-//             return err
-//         }
+func (r *taskRepository) Create(ctx context.Context, task *models.Task) (int, error) {
+	    var id int
+		query := `INSERT INTO "Tasks" (text, status, created_at) VALUES ($1, $2, NOW()) RETURNING id`
+		err := r.db.QueryRowContext(ctx, query, task.Text, task.Status).Scan(&id)
+        if err != nil {
+            return 0, err
+        }
 
-// 		return nil
-// }
+		task.ID = id
+
+		return id, nil
+}
 
 func (r *taskRepository) Update(id int, text string) error {
     

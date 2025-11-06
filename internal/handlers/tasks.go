@@ -9,6 +9,7 @@ import (
 
 	"gosprints/internal/repositories"
 	"gosprints/internal/queue"
+	"gosprints/internal/models"
 )
 
 type TaskHandler struct {
@@ -70,35 +71,31 @@ func (h *TaskHandler) GetTaskByID(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Task response sent")
 }
 
-// func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
+func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	
-// 	var newTask struct {
-// 		Text string `json:"text"`
-// 	}
-	
-// 	if err := json.NewDecoder(r.Body).Decode(&newTask); err != nil {
-// 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-// 		return
-// 	}
+	var task models.Task
+	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
 
-// 	if newTask.Text == "" {
-// 		http.Error(w, "Text field is required", http.StatusBadRequest)
-// 		return
-// 	}
-	
-// 	task := &models.Task{Text: newTask.Text}
-// 	err := h.taskRepo.Create(task)
-// 	if err != nil {
-// 		fmt.Printf("Error creating task: %v\n", err)
-// 		http.Error(w, "Database error", http.StatusInternalServerError)
-// 		return
-// 	}
-	
-// 	w.Header().Set("Content-Type", "application/json")
-// 	w.WriteHeader(http.StatusCreated)
-// 	json.NewEncoder(w).Encode(task)
-// 	fmt.Printf("Task created: ID=%d\n", task.ID)
-// }
+	task.Status = "pending"
+
+	id, err := h.taskRepo.Create(r.Context(), &task)
+	if err != nil {
+		http.Error(w, "Failed to insert into DB", http.StatusInternalServerError)
+		return
+	}
+
+	task.ID = id
+	h.queue.Add(task)
+
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(map[string]any{
+		"message": "Task created and queued for processing",
+		"id":      id,
+	})
+}
 
 func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	
