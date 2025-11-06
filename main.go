@@ -44,9 +44,9 @@ func main() {
 
     r.Handle("GET /tasks", authHandler.AuthMiddleware(taskHandler.GetTasks))
 	// r.Handle("POST /tasks", authHandler.AuthMiddleware(taskHandler.CreateTask))
-	// r.Handle("GET /tasks/{id}", authHandler.AuthMiddleware(taskHandler.GetTaskByID))
-	// r.Handle("PUT /tasks/{id}", authHandler.AuthMiddleware(taskHandler.UpdateTask))
-	// r.Handle("DELETE /tasks/{id}", authHandler.AuthMiddleware(taskHandler.DeleteTask)) //вынести в роутер
+	r.Handle("GET /tasks/{id}", authHandler.AuthMiddleware(taskHandler.GetTaskByID))
+	r.Handle("PUT /tasks/{id}", authHandler.AuthMiddleware(taskHandler.UpdateTask))
+	r.Handle("DELETE /tasks/{id}", authHandler.AuthMiddleware(taskHandler.DeleteTask)) //вынести в роутер
 
     r.HandleFunc("POST /login", authHandler.Login)
     r.HandleFunc("POST /register", authHandler.Register)
