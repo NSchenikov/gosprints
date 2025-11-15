@@ -14,6 +14,7 @@ import (
     "fmt"
     "log"
     "net/http"
+    "time"
 
     "gosprints/pkg/database"
     "gosprints/internal/repositories"
@@ -21,6 +22,7 @@ import (
     "gosprints/internal/worker"
     qpkg "gosprints/internal/queue"
     "gosprints/internal/router"
+    "gosprints/internal/scheduler"
 )
 
 func main() {
@@ -37,6 +39,9 @@ func main() {
 		w := worker.NewWorker(i, taskRepo, queue)
 		w.Start()
 	}
+
+    dispatcher := scheduler.NewDispatcher(taskRepo, queue, 5*time.Second)
+    dispatcher.Start()
 
     taskHandler := handlers.NewTaskHandler(taskRepo, queue)
 	authHandler := handlers.NewAuthHandler(userRepo)

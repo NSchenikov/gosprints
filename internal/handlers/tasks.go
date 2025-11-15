@@ -29,19 +29,9 @@ func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
-
-	pendingCount := 0
-	for _, t := range tasks {
-		if t.Status == "pending" { //задача добавляется в очередь только когда она имеет status "pending". При повторном получении всех задач они по новой не обрабатываются, потому что не добавляются в очередь, уже имея статус "completed" - стандартное поведение. GetQueueStatus тоже не отработает
-			h.queue.Add(t)
-			pendingCount++
-		}
-	}
-
-	fmt.Printf("Retrieved %d tasks from database\n", len(tasks))
 	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(tasks)
+	_ = json.NewEncoder(w).Encode(tasks)
 	fmt.Println("All tasks response sent")
 }
 
@@ -88,11 +78,11 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	task.ID = id
-	h.queue.Add(task)
+	// h.queue.Add(task)
 
 	w.WriteHeader(http.StatusAccepted)
 	json.NewEncoder(w).Encode(map[string]any{
-		"message": "Task created and queued for processing",
+		"message": "Task created and it will be processed",
 		"id":      id,
 	})
 }

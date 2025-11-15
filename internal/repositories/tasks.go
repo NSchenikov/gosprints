@@ -14,6 +14,7 @@ type TaskRepository interface {
 	Update(id int, text string) error //не нужна асинхронная обработка потому что нужно просто изменить текст одной задачи
 	Delete(id int) error //не нужна асинхронная обработка потому что нужно просто удалить конкретную задачу из БД
     UpdateStatus(ctx context.Context, id int, status string, startedAt, endedAt *string) error
+    GetByStatus(ctx context.Context, status string) ([]models.Task, error)
 }
 
 type taskRepository struct {
@@ -40,15 +41,62 @@ func (r *taskRepository) GetAll(ctx context.Context) ([]models.Task, error) {
 		}
 
         if startedAt.Valid {
-            task.StartedAt = startedAt.Time
+            task.StartedAt = &startedAt.Time
         }
         if endedAt.Valid {
-            task.EndedAt = endedAt.Time
+            task.EndedAt = &endedAt.Time
         }
 
 		tasks = append(tasks, task)
 	}
 	return tasks, nil
+}
+
+func (r *taskRepository) GetByStatus(ctx context.Context, status string) ([]models.Task, error) {
+    query := `SELECT id, text, status, created_at, started_at, ended_at
+              FROM "Tasks"
+              WHERE status = $1
+              ORDER BY id`
+
+    rows, err := r.db.QueryContext(ctx, query, status)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    var tasks []models.Task
+    for rows.Next() {
+    var t models.Task
+    var startedAt sql.NullTime
+    var endedAt   sql.NullTime
+
+    if err := rows.Scan(
+        &t.ID,
+        &t.Text,
+        &t.Status,
+        &t.CreatedAt,
+        &startedAt,
+        &endedAt,
+    ); err != nil {
+        return nil, err
+    }
+
+    if startedAt.Valid {
+        t.StartedAt = &startedAt.Time
+    } else {
+        t.StartedAt = nil
+    }
+
+    if endedAt.Valid {
+        t.EndedAt = &endedAt.Time
+    } else {
+        t.EndedAt = nil
+    }
+
+    tasks = append(tasks, t)
+}
+
+    return tasks, rows.Err()
 }
 
 func (r *taskRepository) UpdateStatus(ctx context.Context, id int, status string, startedAt, endedAt *string) error {
