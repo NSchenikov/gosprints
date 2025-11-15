@@ -9,10 +9,10 @@ import (
 
 type TaskRepository interface {
 	GetAll(ctx context.Context) ([]models.Task, error) //нужна асинхронная обработка
-	GetByID(id int) (*models.Task, error) //не нужна асинхронная обработка потому что нужно просто получить одну задачу из БД
+	GetByID(ctx context.Context, id int) (*models.Task, error) //не нужна асинхронная обработка потому что нужно просто получить одну задачу из БД
 	Create(ctx context.Context, task *models.Task) (int, error) //нужен processing, потому что появляется новая задача со статусом pending
-	Update(id int, text string) error //не нужна асинхронная обработка потому что нужно просто изменить текст одной задачи
-	Delete(id int) error //не нужна асинхронная обработка потому что нужно просто удалить конкретную задачу из БД
+	Update(ctx context.Context, task *models.Task) error //не нужна асинхронная обработка потому что нужно просто изменить текст одной задачи
+	Delete(ctx context.Context, id int) error //не нужна асинхронная обработка потому что нужно просто удалить конкретную задачу из БД
     UpdateStatus(ctx context.Context, id int, status string, startedAt, endedAt *string) error
     GetByStatus(ctx context.Context, status string) ([]models.Task, error)
 }
@@ -121,15 +121,36 @@ func (r *taskRepository) UpdateStatus(ctx context.Context, id int, status string
     return err
 }
 
-func (r *taskRepository) GetByID(id int) (*models.Task, error) {
-    
-    var task models.Task
-    err := r.db.QueryRow(`SELECT id, text FROM "Tasks" WHERE id = $1`, id).Scan(&task.ID, &task.Text)
-    
-    if err != nil {
+func (r *taskRepository) GetByID(ctx context.Context, id int) (*models.Task, error) {
+    query := `SELECT id, text, status, created_at, started_at, ended_at
+              FROM "Tasks"
+              WHERE id = $1`
+
+    row := r.db.QueryRowContext(ctx, query, id)
+
+    var t models.Task
+    var startedAt sql.NullTime
+    var endedAt   sql.NullTime
+
+    if err := row.Scan(
+        &t.ID,
+        &t.Text,
+        &t.Status,
+        &t.CreatedAt,
+        &startedAt,
+        &endedAt,
+    ); err != nil {
         return nil, err
     }
-    return &task, nil
+
+    if startedAt.Valid {
+        t.StartedAt = &startedAt.Time
+    }
+    if endedAt.Valid {
+        t.EndedAt = &endedAt.Time
+    }
+
+    return &t, nil
 }
 
 func (r *taskRepository) Create(ctx context.Context, task *models.Task) (int, error) {
@@ -145,48 +166,16 @@ func (r *taskRepository) Create(ctx context.Context, task *models.Task) (int, er
 		return id, nil
 }
 
-func (r *taskRepository) Update(id int, text string) error {
-    
-    result, err := r.db.Exec(
-        `UPDATE "Tasks" SET text = $1 WHERE id = $2`,
-        text, id,
-    )
-    if err != nil {
-        fmt.Printf("Update ERROR: %v\n", err)
-        return err
-    }
+func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
+    query := `UPDATE "Tasks"
+              SET text = $1
+              WHERE id = $2`
 
-    rowsAffected, err := result.RowsAffected()
-    if err != nil {
-        return err
-    }
-
-    if rowsAffected == 0 {
-        return fmt.Errorf("task with ID %d not found", id)
-    }
-    
-    fmt.Printf("Task updated: ID=%d\n", id)
-    return nil
+    _, err := r.db.ExecContext(ctx, query, task.Text, task.ID)
+    return err
 }
 
-func (r *taskRepository) Delete(id int) error {
-
-	result, err := r.db.Exec(`DELETE FROM "Tasks" WHERE id = $1`, id)
-	if err != nil {
-            fmt.Printf("Database delete error: %v\n", err)
-            return err
-    }
-
-	rowsAffected, err := result.RowsAffected()
-    if err != nil {
-        return err
-    }
-
-    if rowsAffected == 0 {
-        return fmt.Errorf("task with ID %d not found", id)
-    }
-    
-    fmt.Printf("Task deleted: ID=%d\n", id)
-
-	return nil
+func (r *taskRepository) Delete(ctx context.Context, id int) error {
+    _, err := r.db.ExecContext(ctx, `DELETE FROM "Tasks" WHERE id = $1`, id)
+    return err
 }

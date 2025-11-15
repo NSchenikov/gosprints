@@ -37,11 +37,14 @@ func (h *AuthHandler) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
             return
         }
 
-        if token.Valid {
-            next(w, r)
-        } else {
-            fmt.Fprintf(w, `{"error": "Invalid token"}`)
+        if !token.Valid {
+            w.Header().Set("Content-Type", "application/json")
+            w.WriteHeader(http.StatusUnauthorized)
+            fmt.Fprint(w, `{"error": "Invalid token"}`)
+            return
         }
+
+        next(w, r)
 	}
 }
 //

@@ -5,25 +5,22 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
-	"gosprints/internal/repositories"
-	"gosprints/internal/queue"
 	"gosprints/internal/models"
+	"gosprints/internal/services"
 )
 
 type TaskHandler struct {
-	taskRepo repositories.TaskRepository
-	queue  *queue.TaskQueue
+	service services.TaskService
 }
 
-func NewTaskHandler(taskRepo repositories.TaskRepository, q *queue.TaskQueue) *TaskHandler {
-	return &TaskHandler{taskRepo: taskRepo, queue: q}
+func NewTaskHandler(service services.TaskService) *TaskHandler {
+	return &TaskHandler{service: service}
 }
 
 func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	tasks, err := h.taskRepo.GetAll(ctx)
+	tasks, err := h.service.GetTasks(ctx)
 	if err != nil {
 		fmt.Printf("Error getting tasks: %v\n", err)
 		http.Error(w, "Database error", http.StatusInternalServerError)
@@ -37,7 +34,8 @@ func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 
 // посмотреть задачи
 func (h *TaskHandler) GetQueueStatus(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(h.queue.GetAll())
+	str, _ := h.service.GetTasks(r.Context())
+	json.NewEncoder(w).Encode(str)
 }
 
 func (h *TaskHandler) GetTaskByID(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +47,7 @@ func (h *TaskHandler) GetTaskByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, err := h.taskRepo.GetByID(id)
+	task, err := h.service.GetTaskByID(r.Context(), id)
 	if err != nil {
 		fmt.Printf("Error getting task: %v\n", err)
 		http.Error(w, "Task not found", http.StatusNotFound)
@@ -69,22 +67,14 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task.Status = "pending"
-
-	id, err := h.taskRepo.Create(r.Context(), &task)
+	created, err := h.service.CreateTask(r.Context(), &task)
 	if err != nil {
 		http.Error(w, "Failed to insert into DB", http.StatusInternalServerError)
 		return
 	}
 
-	task.ID = id
-	// h.queue.Add(task)
-
-	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(map[string]any{
-		"message": "Task created and it will be processed",
-		"id":      id,
-	})
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(created)
 }
 
 func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
@@ -96,74 +86,40 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var updatedTask struct {
-		Text string `json:"text"`
-	}
-	
-	if err := json.NewDecoder(r.Body).Decode(&updatedTask); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
+	var task models.Task
+	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+        http.Error(w, "invalid JSON", http.StatusBadRequest)
+        return
+    }
 
-	if updatedTask.Text == "" {
-		http.Error(w, "Text field is required", http.StatusBadRequest)
-		return
-	}
-
-	err = h.taskRepo.Update(id, updatedTask.Text)
+	updated, err := h.service.UpdateTask(r.Context(), id, &task)
 	if err != nil {
-		fmt.Printf("Error updating task: %v\n", err)
-		http.Error(w, "Task not found", http.StatusNotFound)
+		http.Error(w, "failed to update task", http.StatusNotFound)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status": "success",
-		"message": "Task updated successfully",
-	})
+	_ = json.NewEncoder(w).Encode(updated)
 }
 
 func (h *TaskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
         idStr := r.URL.Path[len("/tasks/"):]
-        if idStr == "" {
+		id, err := strconv.Atoi(idStr)
+        if err != nil {
             http.Error(w, "Task ID is required", http.StatusBadRequest)
             return
         }
 
-        var id int
-        if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
-            http.Error(w, "Invalid task ID", http.StatusBadRequest)
-            return
-        }
-
-        task, err := h.taskRepo.GetByID(id)
-        if err != nil {
-            w.WriteHeader(http.StatusNotFound)
-            json.NewEncoder(w).Encode(map[string]string{
-                "error": err.Error(),
-            })
-            return
-        }
-
-        err = h.taskRepo.Delete(id)
-        if err != nil {
-            fmt.Printf("Error deleting task: %v\n", err)
-            if strings.Contains(err.Error(), "not found") {
-                http.Error(w, "Task not found", http.StatusNotFound)
-            } else {
-                http.Error(w, "Database error", http.StatusInternalServerError)
-            }
-            return
+        if err := h.service.DeleteTask(r.Context(), id); err != nil {
+			http.Error(w, "failed to delete task", http.StatusInternalServerError)
+			return
         }
         
-        w.Header().Set("Content-Type", "application/json")
-        w.WriteHeader(http.StatusOK)
-        if err := json.NewEncoder(w).Encode(map[string]interface{}{
-            "message": "Task deleted successfully",
-            "deleted_task": task,
-        }); err != nil {
-            fmt.Printf("JSON encoding error: %v\n", err)
-            return
-        }
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+
+    _ = json.NewEncoder(w).Encode(map[string]any{
+        "message": "task deleted",
+        "id":      id,
+    })
 }

@@ -23,6 +23,7 @@ import (
     qpkg "gosprints/internal/queue"
     "gosprints/internal/router"
     "gosprints/internal/scheduler"
+    "gosprints/internal/services"
 )
 
 func main() {
@@ -43,7 +44,9 @@ func main() {
     dispatcher := scheduler.NewDispatcher(taskRepo, queue, 5*time.Second)
     dispatcher.Start()
 
-    taskHandler := handlers.NewTaskHandler(taskRepo, queue)
+    taskService := services.NewTaskService(taskRepo)
+
+    taskHandler := handlers.NewTaskHandler(taskService)
 	authHandler := handlers.NewAuthHandler(userRepo)
 
     r := router.NewRouter(taskHandler, authHandler)
