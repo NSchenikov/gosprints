@@ -19,7 +19,8 @@ import (
     "gosprints/internal/repositories"
     "gosprints/internal/handlers"
     "gosprints/internal/worker"
-    "gosprints/internal/queue"
+    qpkg "gosprints/internal/queue"
+    "gosprints/internal/router"
 )
 
 func main() {
@@ -30,7 +31,7 @@ func main() {
     taskRepo := repositories.NewTaskRepository(db)
     userRepo := repositories.NewUserRepository(db)
 
-    queue := queue.NewTaskQueue(100)
+    queue := qpkg.NewTaskQueue(100)
 
     for i := 1; i <= 3; i++ {
 		w := worker.NewWorker(i, taskRepo, queue)
@@ -40,16 +41,7 @@ func main() {
     taskHandler := handlers.NewTaskHandler(taskRepo, queue)
 	authHandler := handlers.NewAuthHandler(userRepo)
 
-	r := http.NewServeMux()
-
-    r.Handle("GET /tasks", authHandler.AuthMiddleware(taskHandler.GetTasks))
-	r.Handle("POST /tasks", authHandler.AuthMiddleware(taskHandler.CreateTask))
-	r.Handle("GET /tasks/{id}", authHandler.AuthMiddleware(taskHandler.GetTaskByID))
-	r.Handle("PUT /tasks/{id}", authHandler.AuthMiddleware(taskHandler.UpdateTask))
-	r.Handle("DELETE /tasks/{id}", authHandler.AuthMiddleware(taskHandler.DeleteTask))
-
-    r.HandleFunc("POST /login", authHandler.Login)
-    r.HandleFunc("POST /register", authHandler.Register)
+    r := router.NewRouter(taskHandler, authHandler)
 
     fmt.Println("Сервер запущен на http://localhost:8080")
 
