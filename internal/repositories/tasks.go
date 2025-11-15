@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"database/sql"
-	"fmt"
+    "time"
 	"gosprints/internal/models"
     "context"
 )
@@ -13,7 +13,7 @@ type TaskRepository interface {
 	Create(ctx context.Context, task *models.Task) (int, error) //нужен processing, потому что появляется новая задача со статусом pending
 	Update(ctx context.Context, task *models.Task) error //не нужна асинхронная обработка потому что нужно просто изменить текст одной задачи
 	Delete(ctx context.Context, id int) error //не нужна асинхронная обработка потому что нужно просто удалить конкретную задачу из БД
-    UpdateStatus(ctx context.Context, id int, status string, startedAt, endedAt *string) error
+    UpdateStatus(ctx context.Context, id int, status string, startedAt, endedAt *time.Time) error
     GetByStatus(ctx context.Context, status string) ([]models.Task, error)
 }
 
@@ -99,26 +99,20 @@ func (r *taskRepository) GetByStatus(ctx context.Context, status string) ([]mode
     return tasks, rows.Err()
 }
 
-func (r *taskRepository) UpdateStatus(ctx context.Context, id int, status string, startedAt, endedAt *string) error {
-	query := `UPDATE "Tasks" SET status=$1`
-	args := []interface{}{status}
-    paramCount := 1
+func (r *taskRepository) UpdateStatus(
+	ctx context.Context,
+	id int,
+	status string,
+	startedAt, endedAt *time.Time,
+) error {
+	query := `UPDATE "Tasks"
+	          SET status = $1,
+	              started_at = $2,
+	              ended_at = $3
+	          WHERE id = $4`
 
-	if startedAt != nil {
-        paramCount++
-        query += fmt.Sprintf(`, started_at = $%d`, paramCount)
-        args = append(args, *startedAt)
-	}
-	if endedAt != nil {
-        paramCount++
-        query += fmt.Sprintf(`, ended_at = $%d`, paramCount)
-        args = append(args, *endedAt)
-	}
-    paramCount++
-    query += fmt.Sprintf(` WHERE id = $%d`, paramCount)
-    args = append(args, id)
-    _, err := r.db.ExecContext(ctx, query, args...)
-    return err
+	_, err := r.db.ExecContext(ctx, query, status, startedAt, endedAt, id)
+	return err
 }
 
 func (r *taskRepository) GetByID(ctx context.Context, id int) (*models.Task, error) {
@@ -154,14 +148,17 @@ func (r *taskRepository) GetByID(ctx context.Context, id int) (*models.Task, err
 }
 
 func (r *taskRepository) Create(ctx context.Context, task *models.Task) (int, error) {
-	    var id int
-		query := `INSERT INTO "Tasks" (text, status, created_at) VALUES ($1, $2, NOW()) RETURNING id`
-		err := r.db.QueryRowContext(ctx, query, task.Text, task.Status).Scan(&id)
+		query := `INSERT INTO "Tasks" (text, status, created_at) VALUES ($1, $2, NOW()) RETURNING id, created_at`
+        var id int
+        var createdAt time.Time
+
+		err := r.db.QueryRowContext(ctx, query, task.Text, task.Status).Scan(&id, &createdAt)
         if err != nil {
             return 0, err
         }
 
 		task.ID = id
+        task.CreatedAt = createdAt
 
 		return id, nil
 }

@@ -23,28 +23,38 @@ func NewDispatcher(repo repositories.TaskRepository, q *queue.TaskQueue, interva
     }
 }
 
-func (d *Dispatcher) Start() {
+func (d *Dispatcher) Start(ctx context.Context) {
     go func() {
+
+        log.Println("[dispatcher] started")
+        defer log.Println("[dispatcher] stopped")
+
         ticker := time.NewTicker(d.interval)
         defer ticker.Stop()
 
-        for range ticker.C {
-            ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-            tasks, err := d.repo.GetByStatus(ctx, "pending")
-            cancel()
-            if err != nil {
-                log.Printf("[dispatcher] failed to get pending tasks: %v\n", err)
-                continue
-            }
+        for {
+            select {
+                case <-ticker.C:
+                    dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+                    tasks, err := d.repo.GetByStatus(dbCtx, "pending")
+                    cancel()
+                    if err != nil {
+                        log.Printf("[dispatcher] failed to get pending tasks: %v\n", err)
+                        continue
+                    }
 
-            if len(tasks) == 0 {
-                continue
-            }
+                    if len(tasks) == 0 {
+                        continue
+                    }
 
-            log.Printf("[dispatcher] found %d pending tasks\n", len(tasks))
+                    log.Printf("[dispatcher] found %d pending tasks\n", len(tasks))
 
-            for _, t := range tasks {
-                d.queue.Add(t)
+                    for _, t := range tasks {
+                        d.queue.Add(t)
+                    }
+                case <-ctx.Done():
+                    log.Println("[dispatcher] received shutdown signal")
+                    return
             }
         }
     }()

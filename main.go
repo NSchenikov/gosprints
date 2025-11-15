@@ -15,6 +15,10 @@ import (
     "log"
     "net/http"
     "time"
+    "context"
+    "os"
+    "os/signal"
+    "syscall"
 
     "gosprints/pkg/database"
     "gosprints/internal/repositories"
@@ -36,13 +40,16 @@ func main() {
 
     queue := qpkg.NewTaskQueue(100)
 
+    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+    defer stop()
+
     for i := 1; i <= 3; i++ {
 		w := worker.NewWorker(i, taskRepo, queue)
-		w.Start()
+		w.Start(ctx)
 	}
 
     dispatcher := scheduler.NewDispatcher(taskRepo, queue, 5*time.Second)
-    dispatcher.Start()
+    dispatcher.Start(ctx)
 
     taskService := services.NewTaskService(taskRepo)
 
@@ -51,7 +58,31 @@ func main() {
 
     r := router.NewRouter(taskHandler, authHandler)
 
-    fmt.Println("Сервер запущен на http://localhost:8080")
+    srv := &http.Server{
+        Addr:    ":8080",
+        Handler: r,
+    }
 
-    log.Fatal(http.ListenAndServe(":8080", r))
+    go func() {
+        fmt.Println("Сервер запущен на http://localhost:8080")
+        if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            log.Fatalf("ListenAndServe error: %v", err)
+        }
+    }()
+
+    <-ctx.Done()
+    log.Println("[main] shutdown signal received")
+
+    shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+
+    if err := srv.Shutdown(shutdownCtx); err != nil {
+        log.Printf("[main] HTTP server Shutdown error: %v", err)
+    } else {
+        log.Println("[main] HTTP server stopped gracefully")
+    }
+
+    log.Println("[main] waiting a bit for workers to finish...")
+    time.Sleep(1 * time.Second)
+    log.Println("[main] shutdown complete")
 }
