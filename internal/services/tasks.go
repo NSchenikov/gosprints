@@ -2,24 +2,26 @@ package services
 
 import (
     "context"
+    "time"
 
     "gosprints/internal/models"
-    "gosprints/internal/repositories"
 )
 
-type TaskService interface {
-    GetTasks(ctx context.Context) ([]models.Task, error)
-    GetTaskByID(ctx context.Context, id int) (models.Task, error)
-    CreateTask(ctx context.Context, task *models.Task) (models.Task, error)
-    UpdateTask(ctx context.Context, id int, task *models.Task) (models.Task, error)
-    DeleteTask(ctx context.Context, id int) error
+type TaskRepository interface {
+	GetAll(ctx context.Context) ([]models.Task, error)
+	GetByID(ctx context.Context, id int) (*models.Task, error)
+	Create(ctx context.Context, task *models.Task) (int, error)
+	Update(ctx context.Context, task *models.Task) error
+	Delete(ctx context.Context, id int) error
+    UpdateStatus(ctx context.Context, id int, status string, startedAt, endedAt *time.Time) error
+    GetByStatus(ctx context.Context, status string) ([]models.Task, error)
 }
 
 type taskService struct {
-    repo repositories.TaskRepository
+    repo TaskRepository
 }
 
-func NewTaskService(repo repositories.TaskRepository) TaskService {
+func NewTaskService(repo TaskRepository) *taskService {
     return &taskService{repo: repo}
 }
 

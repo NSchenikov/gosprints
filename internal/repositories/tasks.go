@@ -7,21 +7,11 @@ import (
     "context"
 )
 
-type TaskRepository interface {
-	GetAll(ctx context.Context) ([]models.Task, error) //нужна асинхронная обработка
-	GetByID(ctx context.Context, id int) (*models.Task, error) //не нужна асинхронная обработка потому что нужно просто получить одну задачу из БД
-	Create(ctx context.Context, task *models.Task) (int, error) //нужен processing, потому что появляется новая задача со статусом pending
-	Update(ctx context.Context, task *models.Task) error //не нужна асинхронная обработка потому что нужно просто изменить текст одной задачи
-	Delete(ctx context.Context, id int) error //не нужна асинхронная обработка потому что нужно просто удалить конкретную задачу из БД
-    UpdateStatus(ctx context.Context, id int, status string, startedAt, endedAt *time.Time) error
-    GetByStatus(ctx context.Context, status string) ([]models.Task, error)
-}
-
 type taskRepository struct {
 	db *sql.DB
 }
 
-func NewTaskRepository(db *sql.DB) TaskRepository {
+func NewTaskRepository(db *sql.DB) *taskRepository {
 	return &taskRepository{db: db}
 }
 

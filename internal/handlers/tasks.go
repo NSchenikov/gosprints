@@ -5,16 +5,24 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"context"
 
 	"gosprints/internal/models"
-	"gosprints/internal/services"
 )
 
-type TaskHandler struct {
-	service services.TaskService
+type TaskService interface {
+    GetTasks(ctx context.Context) ([]models.Task, error)
+    GetTaskByID(ctx context.Context, id int) (models.Task, error)
+    CreateTask(ctx context.Context, task *models.Task) (models.Task, error)
+    UpdateTask(ctx context.Context, id int, task *models.Task) (models.Task, error)
+    DeleteTask(ctx context.Context, id int) error
 }
 
-func NewTaskHandler(service services.TaskService) *TaskHandler {
+type TaskHandler struct {
+	service TaskService
+}
+
+func NewTaskHandler(service TaskService) *TaskHandler {
 	return &TaskHandler{service: service}
 }
 

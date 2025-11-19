@@ -6,16 +6,16 @@ import (
     "time"
 
     "gosprints/internal/queue"
-    "gosprints/internal/repositories"
+    "gosprints/internal/services"
 )
 
 type Dispatcher struct {
-    repo     repositories.TaskRepository
+    repo     services.TaskRepository
     queue    *queue.TaskQueue
     interval time.Duration
 }
 
-func NewDispatcher(repo repositories.TaskRepository, q *queue.TaskQueue, interval time.Duration) *Dispatcher {
+func NewDispatcher(repo services.TaskRepository, q *queue.TaskQueue, interval time.Duration) *Dispatcher {
     return &Dispatcher{
         repo:     repo,
         queue:    q,

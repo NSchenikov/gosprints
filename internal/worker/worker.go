@@ -2,7 +2,7 @@ package worker
 
 import (
 	"gosprints/internal/queue"
-	"gosprints/internal/repositories"
+	"gosprints/internal/services"
 	"fmt"
 	"log"
 	"math/rand"
@@ -12,11 +12,11 @@ import (
 
 type Worker struct {
 	ID   int
-	Repo repositories.TaskRepository
+	Repo services.TaskRepository
 	Queue *queue.TaskQueue
 }
 
-func NewWorker(id int, repo repositories.TaskRepository, q *queue.TaskQueue) *Worker {
+func NewWorker(id int, repo services.TaskRepository, q *queue.TaskQueue) *Worker {
 	return &Worker{ID: id, Repo: repo, Queue: q}
 }
 
