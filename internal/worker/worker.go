@@ -1,8 +1,7 @@
 package worker
 
 import (
-	"gosprints/internal/queue"
-	"gosprints/internal/services"
+	"gosprints/internal/models"
 	"fmt"
 	"log"
 	"math/rand"
@@ -10,14 +9,22 @@ import (
 	"context"
 )
 
-type Worker struct {
-	ID   int
-	Repo services.TaskRepository
-	Queue *queue.TaskQueue
+type TaskRepository interface {
+	UpdateStatus(ctx context.Context, id int, status string, startedAt, endedAt *time.Time) error
 }
 
-func NewWorker(id int, repo services.TaskRepository, q *queue.TaskQueue) *Worker {
-	return &Worker{ID: id, Repo: repo, Queue: q}
+type TaskQueue interface {
+	Tasks() <-chan models.Task
+}
+
+type Worker struct {
+	ID   int
+	Repo TaskRepository
+	Queue TaskQueue
+}
+
+func NewWorker(id int, repo TaskRepository, queue TaskQueue) *Worker {
+	return &Worker{ID: id, Repo: repo, Queue: queue}
 }
 
 func (w *Worker) Start(ctx context.Context) {

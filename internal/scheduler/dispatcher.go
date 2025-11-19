@@ -5,17 +5,24 @@ import (
     "log"
     "time"
 
-    "gosprints/internal/queue"
-    "gosprints/internal/services"
+    "gosprints/internal/models"
 )
 
+type TaskRepository interface {
+	GetByStatus(ctx context.Context, status string) ([]models.Task, error)
+}
+
+type TaskQueue interface {
+	Add(task models.Task)
+}
+
 type Dispatcher struct {
-    repo     services.TaskRepository
-    queue    *queue.TaskQueue
+    repo     TaskRepository
+    queue    TaskQueue
     interval time.Duration
 }
 
-func NewDispatcher(repo services.TaskRepository, q *queue.TaskQueue, interval time.Duration) *Dispatcher {
+func NewDispatcher(repo TaskRepository, q TaskQueue, interval time.Duration) *Dispatcher {
     return &Dispatcher{
         repo:     repo,
         queue:    q,
