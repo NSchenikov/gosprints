@@ -28,6 +28,7 @@ import (
     "gosprints/internal/router"
     "gosprints/internal/scheduler"
     "gosprints/internal/services"
+    "gosprints/internal/ws"
 )
 
 func main() {
@@ -43,8 +44,11 @@ func main() {
     ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
     defer stop()
 
+    hub := ws.NewNotificationHub()
+	notifier := ws.NewWSNotifier(hub)
+
     for i := 1; i <= 3; i++ {
-		w := worker.NewWorker(i, taskRepo, queue)
+		w := worker.NewWorker(i, taskRepo, queue, notifier)
 		w.Start(ctx)
 	}
 

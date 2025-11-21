@@ -16,7 +16,7 @@ func NewTaskRepository(db *sql.DB) *taskRepository {
 }
 
 func (r *taskRepository) GetAll(ctx context.Context) ([]models.Task, error) {
-	rows, err := r.db.Query(`SELECT id, text, status, created_at, started_at, ended_at FROM "Tasks" ORDER BY id`)
+	rows, err := r.db.Query(`SELECT id, text, status, created_at, started_at, ended_at, user_id FROM "Tasks" ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (r *taskRepository) GetAll(ctx context.Context) ([]models.Task, error) {
 }
 
 func (r *taskRepository) GetByStatus(ctx context.Context, status string) ([]models.Task, error) {
-    query := `SELECT id, text, status, created_at, started_at, ended_at
+    query := `SELECT id, text, status, created_at, started_at, ended_at, user_id
               FROM "Tasks"
               WHERE status = $1
               ORDER BY id`
@@ -106,7 +106,7 @@ func (r *taskRepository) UpdateStatus(
 }
 
 func (r *taskRepository) GetByID(ctx context.Context, id int) (*models.Task, error) {
-    query := `SELECT id, text, status, created_at, started_at, ended_at
+    query := `SELECT id, text, status, created_at, started_at, ended_at, user_id
               FROM "Tasks"
               WHERE id = $1`
 
@@ -138,7 +138,7 @@ func (r *taskRepository) GetByID(ctx context.Context, id int) (*models.Task, err
 }
 
 func (r *taskRepository) Create(ctx context.Context, task *models.Task) (int, error) {
-		query := `INSERT INTO "Tasks" (text, status, created_at) VALUES ($1, $2, NOW()) RETURNING id, created_at`
+		query := `INSERT INTO "Tasks" (text, status, created_at, user_id) VALUES ($1, $2, NOW(), $3) RETURNING id, created_at`
         var id int
         var createdAt time.Time
 

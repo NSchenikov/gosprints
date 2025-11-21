@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"gosprints/internal/models"
+	"gosprints/pkg/auth"
 )
 
 type TaskService interface {
@@ -69,13 +70,27 @@ func (h *TaskHandler) GetTaskByID(w http.ResponseWriter, r *http.Request) {
 
 func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	
-	var task models.Task
-	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
+	userID, err := auth.GetUserFromJWT(r)
+    if err != nil {
+        http.Error(w, "unauthorized", http.StatusUnauthorized)
+        return
+    }
 
-	created, err := h.service.CreateTask(r.Context(), &task)
+	var input struct {
+        Text string `json:"text"`
+    }
+
+    if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+        http.Error(w, "Invalid JSON", http.StatusBadRequest)
+        return
+    }
+
+    task := &models.Task{
+        Text:   input.Text,
+        UserID: userID,
+    }
+
+	created, err := h.service.CreateTask(r.Context(), task)
 	if err != nil {
 		http.Error(w, "Failed to insert into DB", http.StatusInternalServerError)
 		return

@@ -17,14 +17,19 @@ type TaskQueue interface {
 	Tasks() <-chan models.Task
 }
 
+type Notifier interface {
+	NotifyTaskStatusChanged(userID string, evt models.TaskStatusEvent)
+}
+
 type Worker struct {
 	ID   int
 	Repo TaskRepository
 	Queue TaskQueue
+	notifier Notifier
 }
 
-func NewWorker(id int, repo TaskRepository, queue TaskQueue) *Worker {
-	return &Worker{ID: id, Repo: repo, Queue: queue}
+func NewWorker(id int, repo TaskRepository, queue TaskQueue, n Notifier) *Worker {
+	return &Worker{ID: id, Repo: repo, Queue: queue, notifier: n}
 }
 
 func (w *Worker) Start(ctx context.Context) {
@@ -48,6 +53,14 @@ func (w *Worker) Start(ctx context.Context) {
 						continue
 					}
 
+					w.notifier.NotifyTaskStatusChanged(task.UserID, models.TaskStatusEvent{
+						Type:      "task_status_changed",
+						TaskID:    task.ID,
+						Text:      task.Text,
+						Status:    "processing",
+						Timestamp: start,
+					})
+
 					// имитация обработки таски
 					processTime := time.Duration(rand.Intn(3)+1) * time.Second
 					time.Sleep(processTime)
@@ -58,6 +71,14 @@ func (w *Worker) Start(ctx context.Context) {
 						log.Printf("[Worker %d] Failed to update task #%d to 'completed': %v", w.ID, task.ID, err)
 						continue
 					}
+
+					w.notifier.NotifyTaskStatusChanged(task.UserID, models.TaskStatusEvent{
+						Type:      "task_status_changed",
+						TaskID:    task.ID,
+						Text:      task.Text,
+						Status:    "completed",
+						Timestamp: end,
+					})
 
 					log.Printf("[Worker %d] Completed task processing #%d (%s) at %v\n", w.ID, task.ID, task.Text, end)
 					fmt.Println("----------------------------------------")
