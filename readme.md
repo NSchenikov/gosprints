@@ -6,6 +6,10 @@ curl -X POST http://localhost:8080/login -H "Content-Type: application/json" -d 
 Использовать токен для доступа:
 Заменить YOUR_TOKEN на полученный токен
 
+для отслеживания статуса задачи по WebSocket установить wscat и использовать:
+wscat -c "ws://localhost:8080/ws" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
 Все задачи: curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8080/tasks
 
 Добавить задачу:

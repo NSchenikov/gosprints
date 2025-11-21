@@ -45,7 +45,7 @@ func main() {
     defer stop()
 
     hub := ws.NewNotificationHub()
-	notifier := ws.NewWSNotifier(hub)
+    notifier := ws.NewWSNotifier(hub)
 
     for i := 1; i <= 3; i++ {
 		w := worker.NewWorker(i, taskRepo, queue, notifier)
@@ -60,7 +60,7 @@ func main() {
     taskHandler := handlers.NewTaskHandler(taskService)
 	authHandler := handlers.NewAuthHandler(userRepo)
 
-    r := router.NewRouter(taskHandler, authHandler)
+    r := router.NewRouter(taskHandler, authHandler, hub)
 
     srv := &http.Server{
         Addr:    ":8080",

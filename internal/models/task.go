@@ -17,7 +17,7 @@ type Task struct {
 
 type TaskStatusEvent struct {
 	Type      string    `json:"type"`
-	TaskID    int       `json:"book_id"`
+	TaskID    int       `json:"task_id"`
 	Text     string    `json:"text"`
 	Status    string    `json:"status"`
 	Timestamp time.Time `json:"timestamp"`

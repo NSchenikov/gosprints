@@ -26,7 +26,7 @@ func (r *taskRepository) GetAll(ctx context.Context) ([]models.Task, error) {
 	for rows.Next() {
 		var task models.Task
         var startedAt, endedAt sql.NullTime
-		if err := rows.Scan(&task.ID, &task.Text, &task.Status, &task.CreatedAt, &startedAt, &endedAt); err != nil {
+		if err := rows.Scan(&task.ID, &task.Text, &task.Status, &task.CreatedAt, &startedAt, &endedAt, &task.UserID); err != nil {
 			return nil, err
 		}
 
@@ -67,6 +67,7 @@ func (r *taskRepository) GetByStatus(ctx context.Context, status string) ([]mode
         &t.CreatedAt,
         &startedAt,
         &endedAt,
+        &t.UserID,
     ); err != nil {
         return nil, err
     }
@@ -123,6 +124,7 @@ func (r *taskRepository) GetByID(ctx context.Context, id int) (*models.Task, err
         &t.CreatedAt,
         &startedAt,
         &endedAt,
+        &t.UserID,
     ); err != nil {
         return nil, err
     }
@@ -138,11 +140,11 @@ func (r *taskRepository) GetByID(ctx context.Context, id int) (*models.Task, err
 }
 
 func (r *taskRepository) Create(ctx context.Context, task *models.Task) (int, error) {
-		query := `INSERT INTO "Tasks" (text, status, created_at, user_id) VALUES ($1, $2, NOW(), $3) RETURNING id, created_at`
+		query := `INSERT INTO "Tasks" (text, status, user_id, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id, created_at`
         var id int
         var createdAt time.Time
 
-		err := r.db.QueryRowContext(ctx, query, task.Text, task.Status).Scan(&id, &createdAt)
+		err := r.db.QueryRowContext(ctx, query, task.Text, task.Status, task.UserID).Scan(&id, &createdAt)
         if err != nil {
             return 0, err
         }

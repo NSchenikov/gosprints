@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"context"
+	"log"
 
 	"gosprints/internal/models"
 	"gosprints/pkg/auth"
@@ -92,6 +93,7 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.service.CreateTask(r.Context(), task)
 	if err != nil {
+		log.Printf("CreateTask DB error: %v", err)
 		http.Error(w, "Failed to insert into DB", http.StatusInternalServerError)
 		return
 	}

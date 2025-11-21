@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
+	"gosprints/pkg/auth"
 )
 
 var upgrader = websocket.Upgrader{
@@ -15,7 +16,7 @@ var upgrader = websocket.Upgrader{
 
 func NewWSHandler(hub *NotificationHub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID := r.URL.Query().Get("user_id")
+		userID, err := auth.GetUserFromJWT(r)
 		if userID == "" {
 			http.Error(w, "user_id required", http.StatusBadRequest)
 			return
