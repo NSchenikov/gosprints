@@ -23,6 +23,11 @@ func NewNotificationHub() *NotificationHub {
 func (h *NotificationHub) AddClient(userID string, conn *websocket.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
+	if oldConn, ok := h.clients[userID]; ok && oldConn != conn {
+        oldConn.Close() // завершение более раннего подключения
+    }
+
 	h.clients[userID] = conn
 }
 
