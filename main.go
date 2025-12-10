@@ -7,6 +7,7 @@
 // 6) https://www.youtube.com/watch?v=wHQBMDInWEg
 // 7) https://proglib.io/p/parallelizm-v-golang-i-workerpool-chast-1-2020-12-24
 // 8) https://proglib.io/p/parallelizm-v-golang-i-workerpool-chast-2-2020-12-26
+// 9) https://habr.com/ru/articles/948866/
 
 package main
 
