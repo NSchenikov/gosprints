@@ -30,6 +30,7 @@ import (
     "gosprints/internal/scheduler"
     "gosprints/internal/services"
     "gosprints/internal/ws"
+    "gosprints/internal/cache"
 )
 
 func main() {
@@ -37,8 +38,20 @@ func main() {
     db := database.InitDB()
     defer db.Close()
 
-    taskRepo := repositories.NewTaskRepository(db)
+    cacheConfig := cache.CacheConfig{
+        DefaultTTL:      10 * time.Minute,
+        CleanupInterval: 5 * time.Minute,
+        MaxItems:        10000,
+    }
+    
+    appCache := cache.NewMemoryCache(cacheConfig)
+    defer appCache.Stop()
+
+    baseTaskRepo := repositories.NewTaskRepository(db)
     userRepo := repositories.NewUserRepository(db)
+
+    //обернули в кэширующий репозиторий
+    taskRepo := repositories.NewTaskCacheRepository(baseTaskRepo, appCache)
 
     queue := qpkg.NewTaskQueue(100)
 
@@ -61,12 +74,25 @@ func main() {
     taskHandler := handlers.NewTaskHandler(taskService)
 	authHandler := handlers.NewAuthHandler(userRepo)
 
-    r := router.NewRouter(taskHandler, authHandler, hub)
+    //хэндлер управления кэшем
+    cacheHandler := handlers.NewCacheHandler(taskRepo)
+
+    r := router.NewRouter(taskHandler, authHandler, hub, cacheHandler)
 
     srv := &http.Server{
         Addr:    ":8080",
         Handler: r,
     }
+
+    go func() {
+        time.Sleep(2 * time.Second)
+        log.Println("[main] Warming up cache...")
+        if err := taskRepo.WarmUpCache(context.Background()); err != nil {
+            log.Printf("[main] Failed to warm up cache: %v", err)
+        } else {
+            log.Println("[main] Cache warmed up successfully")
+        }
+    }()
 
     go func() {
         fmt.Println("Сервер запущен на http://localhost:8080")

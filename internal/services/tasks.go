@@ -17,6 +17,21 @@ type TaskRepository interface {
     GetByStatus(ctx context.Context, status string) ([]models.Task, error)
 }
 
+type TaskCacheRepository interface {
+    TaskRepository
+    WarmUpCache(ctx context.Context) error
+    ClearCache(ctx context.Context) error
+    GetCacheStats() CacheStats
+}
+
+type CacheStats struct {
+    Hits       int64
+    Misses     int64
+    Sets       int64
+    Deletes    int64
+    Expirations int64
+}
+
 type taskService struct {
     repo TaskRepository
 }

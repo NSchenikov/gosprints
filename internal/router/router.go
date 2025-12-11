@@ -7,7 +7,7 @@ import (
     "gosprints/internal/ws"
 )
 
-func NewRouter(taskHandler *handlers.TaskHandler, authHandler *handlers.AuthHandler, hub *ws.NotificationHub) *http.ServeMux {
+func NewRouter(taskHandler *handlers.TaskHandler, authHandler *handlers.AuthHandler, hub *ws.NotificationHub, cacheHandler *handlers.CacheHandler) *http.ServeMux {
     r := http.NewServeMux()
 
     r.Handle("GET /tasks",       authHandler.AuthMiddleware(taskHandler.GetTasks))
@@ -19,6 +19,10 @@ func NewRouter(taskHandler *handlers.TaskHandler, authHandler *handlers.AuthHand
 
     wsHandler := ws.NewWSHandler(hub)
     r.HandleFunc("GET /ws", wsHandler)
+
+    r.HandleFunc("GET /admin/cache/stats", cacheHandler.GetCacheStats)
+    r.HandleFunc("POST /admin/cache/clear", cacheHandler.ClearCache)
+    r.HandleFunc("POST /admin/cache/warmup", cacheHandler.WarmUpCache)
 
     r.HandleFunc("POST /login",    authHandler.Login)
     r.HandleFunc("POST /register", authHandler.Register)
