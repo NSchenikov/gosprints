@@ -23,3 +23,21 @@ curl -X PUT http://localhost:8080/tasks/{id} -H "Authorization: Bearer YOUR_TOKE
 
 Удалить задачу:
 curl -X DELETE -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8080/tasks/{id}
+
+
+
+//проверить кэширование:
+ 1. Статистика кэша (изначально пусто)
+curl -X GET http://localhost:8080/admin/cache/stats \
+  -H "Authorization: Bearer $TOKEN"
+
+//проверка get
+ 2. Первый запрос - должен быть MISS (промах кэша)
+curl -X GET http://localhost:8080/tasks \
+  -H "Authorization: Bearer $TOKEN" \
+  -w "\nВремя: %{time_total}сек\n"
+
+ 3. Второй запрос - должен быть HIT (попадание в кэш, быстрее)
+curl -X GET http://localhost:8080/tasks \
+  -H "Authorization: Bearer $TOKEN" \
+  -w "\nВремя: %{time_total}сек\n"

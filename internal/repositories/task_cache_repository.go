@@ -9,21 +9,14 @@ import (
 
 	"gosprints/internal/cache"
 	"gosprints/internal/models"
+	"gosprints/internal/services"
 )
 
 type TaskCacheRepository struct {
 	baseRepo *taskRepository
 	cache    cache.Cache
-	stats    CacheStats
+	stats    cache.CacheStats
 	mu       sync.RWMutex
-}
-
-type CacheStats struct {
-	Hits       int64
-	Misses     int64
-	Sets       int64
-	Deletes    int64
-	Expirations int64
 }
 
 const (
@@ -36,7 +29,7 @@ func NewTaskCacheRepository(baseRepo *taskRepository, cache cache.Cache) *TaskCa
 	return &TaskCacheRepository{
 		baseRepo: baseRepo,
 		cache:    cache,
-		stats:    CacheStats{},
+		// stats:    cache.CacheStats{},
 	}
 }
 
@@ -286,7 +279,7 @@ func (r *TaskCacheRepository) ClearCache(ctx context.Context) error {
 	return nil
 }
 
-func (r *TaskCacheRepository) GetCacheStats() CacheStats {
+func (r *TaskCacheRepository) GetCacheStats() cache.CacheStats {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.stats
@@ -303,3 +296,5 @@ func (r *TaskCacheRepository) incMiss() {
 	defer r.mu.Unlock()
 	r.stats.Misses++
 }
+
+var _ services.TaskRepository = (*TaskCacheRepository)(nil)

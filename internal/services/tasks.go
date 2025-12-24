@@ -5,6 +5,7 @@ import (
     "time"
 
     "gosprints/internal/models"
+    "gosprints/internal/cache"
 )
 
 type TaskRepository interface {
@@ -21,15 +22,7 @@ type TaskCacheRepository interface {
     TaskRepository
     WarmUpCache(ctx context.Context) error
     ClearCache(ctx context.Context) error
-    GetCacheStats() CacheStats
-}
-
-type CacheStats struct {
-    Hits       int64
-    Misses     int64
-    Sets       int64
-    Deletes    int64
-    Expirations int64
+    GetCacheStats() cache.CacheStats
 }
 
 type taskService struct {
