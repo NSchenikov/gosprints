@@ -37,7 +37,7 @@ curl -X GET http://localhost:8080/admin/cache/stats \
 
 # 3. первый запрос
 curl -X GET http://localhost:8080/tasks \
-  -H "Authorization: Bearer YOUR_TOKEN"
+  -H "Authorization: Bearer YOUR_TOKEN" > /dev/null
 
 # 4. статистика
 curl -X GET http://localhost:8080/admin/cache/stats \
@@ -46,7 +46,7 @@ curl -X GET http://localhost:8080/admin/cache/stats \
 
 # 5. еще один запрос
 curl -X GET http://localhost:8080/tasks \
-  -H "Authorization: Bearer YOUR_TOKEN"
+  -H "Authorization: Bearer YOUR_TOKEN" > /dev/null
 
 # 6. статистика
 curl -X GET http://localhost:8080/admin/cache/stats \
