@@ -71,6 +71,9 @@ func (r *TaskCacheRepository) GetAll(ctx context.Context) ([]models.Task, error)
 	if tasks != nil {
 		if data, err := json.Marshal(tasks); err == nil {
 			r.cache.Set(ctx, cacheKey, data, CacheTTLAllTasks)
+			r.mu.Lock()
+			r.stats.Sets++
+			r.mu.Unlock()
 		}
 	}
 	
@@ -101,6 +104,9 @@ func (r *TaskCacheRepository) GetByID(ctx context.Context, id int) (*models.Task
 	if task != nil {
 		if data, err := json.Marshal(task); err == nil {
 			r.cache.Set(ctx, cacheKey, data, CacheTTLSingleTask)
+			r.mu.Lock()
+			r.stats.Sets++
+			r.mu.Unlock()
 		}
 	}
 	
@@ -131,6 +137,9 @@ func (r *TaskCacheRepository) GetByStatus(ctx context.Context, status string) ([
 	if tasks != nil {
 		if data, err := json.Marshal(tasks); err == nil {
 			r.cache.Set(ctx, cacheKey, data, CacheTTLByStatus)
+			r.mu.Lock()
+			r.stats.Sets++
+			r.mu.Unlock()
 		}
 	}
 	
@@ -276,7 +285,12 @@ func (r *TaskCacheRepository) WarmUpCache(ctx context.Context) error {
 func (r *TaskCacheRepository) ClearCache(ctx context.Context) error {
 	r.cache.InvalidateByPattern(ctx, "task:")
 	r.cache.InvalidateByPattern(ctx, "tasks:")
-	return nil
+	
+	r.mu.Lock()
+    r.stats = cache.CacheStats{}
+    r.mu.Unlock()
+
+	return r.cache.InvalidateByPattern(ctx, "task:")
 }
 
 func (r *TaskCacheRepository) GetCacheStats() cache.CacheStats {

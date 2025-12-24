@@ -27,17 +27,28 @@ curl -X DELETE -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8080/tasks
 
 
 //проверить кэширование:
- 1. Статистика кэша (изначально пусто)
+# 1. Очистка
+curl -X POST http://localhost:8080/admin/cache/clear \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# 2. статистика
 curl -X GET http://localhost:8080/admin/cache/stats \
-  -H "Authorization: Bearer $TOKEN"
+  -H "Authorization: Bearer YOUR_TOKEN"
 
-//проверка get
- 2. Первый запрос - должен быть MISS (промах кэша)
+# 3. первый запрос
 curl -X GET http://localhost:8080/tasks \
-  -H "Authorization: Bearer $TOKEN" \
-  -w "\nВремя: %{time_total}сек\n"
+  -H "Authorization: Bearer YOUR_TOKEN"
 
- 3. Второй запрос - должен быть HIT (попадание в кэш, быстрее)
+# 4. статистика
+curl -X GET http://localhost:8080/admin/cache/stats \
+  -H "Authorization: Bearer YOUR_TOKEN"
+# Должно получиться: misses=1, sets=0 или >0
+
+# 5. еще один запрос
 curl -X GET http://localhost:8080/tasks \
-  -H "Authorization: Bearer $TOKEN" \
-  -w "\nВремя: %{time_total}сек\n"
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# 6. статистика
+curl -X GET http://localhost:8080/admin/cache/stats \
+  -H "Authorization: Bearer YOUR_TOKEN"
+# Должно получиться: hits=1, misses=1
