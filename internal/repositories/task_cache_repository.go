@@ -46,103 +46,90 @@ func (r *TaskCacheRepository) tasksByStatusKey(status string) string {
 	return fmt.Sprintf("tasks:status:%s", status)
 }
 
+// Вспомогательные методы для работы с кэшем
+func (r *TaskCacheRepository) saveToCache(ctx context.Context, key string, data interface{}, ttl time.Duration) {
+	if data == nil {
+		return
+	}
+	
+	if marshaled, err := json.Marshal(data); err == nil {
+		r.cache.Set(ctx, key, marshaled, ttl)
+		
+		r.mu.Lock()
+		r.stats.Sets++
+		r.mu.Unlock()
+	}
+}
+
+func (r *TaskCacheRepository) getFromCache(ctx context.Context, key string, target interface{}) (bool, error) {
+	cached, err := r.cache.Get(ctx, key)
+	if err != nil || cached == nil {
+		r.incMiss()
+		return false, nil
+	}
+	
+	if err := json.Unmarshal(cached, target); err != nil {
+		r.incMiss()
+		return false, nil
+	}
+	
+	r.incHit()
+	return true, nil
+}
+
 //отчасти повторяем все методы, но с кэшированием
 func (r *TaskCacheRepository) GetAll(ctx context.Context) ([]models.Task, error) {
 	cacheKey := r.allTasksKey()
+	var tasks []models.Task
 	
-	// Пытаемся получить из кэша
-	if cached, err := r.cache.Get(ctx, cacheKey); err == nil && cached != nil {
-		r.incHit()
-		var tasks []models.Task
-		if err := json.Unmarshal(cached, &tasks); err == nil {
-			return tasks, nil
-		}
+	if found, _ := r.getFromCache(ctx, cacheKey, &tasks); found {
+		return tasks, nil
 	}
 	
-	r.incMiss()
-	
-	// берем из базы
 	tasks, err := r.baseRepo.GetAll(ctx)
 	if err != nil {
 		return nil, err
 	}
 	
-	// кладем в кэш
-	if tasks != nil {
-		if data, err := json.Marshal(tasks); err == nil {
-			r.cache.Set(ctx, cacheKey, data, CacheTTLAllTasks)
-			r.mu.Lock()
-			r.stats.Sets++
-			r.mu.Unlock()
-		}
-	}
-	
+	r.saveToCache(ctx, cacheKey, tasks, CacheTTLAllTasks)
 	return tasks, nil
 }
 
 func (r *TaskCacheRepository) GetByID(ctx context.Context, id int) (*models.Task, error) {
 	cacheKey := r.taskByIDKey(id)
+	var task models.Task
 	
-	// Пытаемся достать из кэша
-	if cached, err := r.cache.Get(ctx, cacheKey); err == nil && cached != nil {
-		r.incHit()
-		var task models.Task
-		if err := json.Unmarshal(cached, &task); err == nil {
-			return &task, nil
-		}
+	if found, _ := r.getFromCache(ctx, cacheKey, &task); found {
+		return &task, nil
 	}
 	
-	r.incMiss()
-	
-	// берем из базы
-	task, err := r.baseRepo.GetByID(ctx, id)
+	taskPtr, err := r.baseRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	
-	// Сохраняем в кэше
-	if task != nil {
-		if data, err := json.Marshal(task); err == nil {
-			r.cache.Set(ctx, cacheKey, data, CacheTTLSingleTask)
-			r.mu.Lock()
-			r.stats.Sets++
-			r.mu.Unlock()
-		}
+	if taskPtr == nil {
+		return nil, nil
 	}
 	
-	return task, nil
+	r.saveToCache(ctx, cacheKey, taskPtr, CacheTTLSingleTask)
+	return taskPtr, nil
 }
 
 func (r *TaskCacheRepository) GetByStatus(ctx context.Context, status string) ([]models.Task, error) {
 	cacheKey := r.tasksByStatusKey(status)
+	var tasks []models.Task
 	
-	// Пытаемся получить из кэша
-	if cached, err := r.cache.Get(ctx, cacheKey); err == nil && cached != nil {
-		r.incHit()
-		var tasks []models.Task
-		if err := json.Unmarshal(cached, &tasks); err == nil {
-			return tasks, nil
-		}
+	if found, _ := r.getFromCache(ctx, cacheKey, &tasks); found {
+		return tasks, nil
 	}
 	
-	r.incMiss()
-	
-	// Получаем из базы
 	tasks, err := r.baseRepo.GetByStatus(ctx, status)
 	if err != nil {
 		return nil, err
 	}
 	
-	// Сохраняем в кэш
-	if tasks != nil {
-		if data, err := json.Marshal(tasks); err == nil {
-			r.cache.Set(ctx, cacheKey, data, CacheTTLByStatus)
-			r.mu.Lock()
-			r.stats.Sets++ //вынести в отдельный метод и не повторять одно и то же в GetAll, GetByID и GetByStatus
-			r.mu.Unlock()
-		}
-	}
-	
+	r.saveToCache(ctx, cacheKey, tasks, CacheTTLByStatus)
 	return tasks, nil
 }
 
@@ -199,8 +186,7 @@ func (r *TaskCacheRepository) UpdateStatus(
 	
 	// Инвалидируем
 	go func() {
-		ctx := context.Background()
-		r.invalidateTaskCache(ctx, id, oldTask)
+		r.invalidateTaskCache(context.Background(), id, oldTask)
 	}()
 	
 	return nil
@@ -222,8 +208,7 @@ func (r *TaskCacheRepository) Delete(ctx context.Context, id int) error {
 	
 	// Инвалидация
 	go func() {
-		ctx := context.Background()
-		r.invalidateTaskCache(ctx, id, task)
+		r.invalidateTaskCache(context.Background(), id, task)
 	}()
 	
 	return nil
@@ -259,10 +244,7 @@ func (r *TaskCacheRepository) WarmUpCache(ctx context.Context) error {
 	
 	// Кэшируем все задачи по отдельности
 	for _, task := range tasks {
-		cacheKey := r.taskByIDKey(task.ID)
-		if data, err := json.Marshal(task); err == nil {
-			r.cache.Set(ctx, cacheKey, data, CacheTTLSingleTask)
-		}
+		r.saveToCache(ctx, r.taskByIDKey(task.ID), task, CacheTTLSingleTask)
 	}
 	
 	// Кэшируем по статусам
@@ -273,10 +255,7 @@ func (r *TaskCacheRepository) WarmUpCache(ctx context.Context) error {
 			continue
 		}
 		
-		cacheKey := r.tasksByStatusKey(status)
-		if data, err := json.Marshal(tasksByStatus); err == nil {
-			r.cache.Set(ctx, cacheKey, data, CacheTTLByStatus)
-		}
+		r.saveToCache(ctx, r.tasksByStatusKey(status), tasksByStatus, CacheTTLByStatus)
 	}
 	
 	return nil
@@ -290,7 +269,7 @@ func (r *TaskCacheRepository) ClearCache(ctx context.Context) error {
     r.stats = cache.CacheStats{}
     r.mu.Unlock()
 
-	return r.cache.InvalidateByPattern(ctx, "task:")
+	return nil
 }
 
 func (r *TaskCacheRepository) GetCacheStats() cache.CacheStats {
