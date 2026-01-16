@@ -20,9 +20,9 @@ type TaskCacheRepository struct {
 }
 
 const (
-	CacheTTLAllTasks      = 1 * time.Minute    // Короткий TTL для списков
-	CacheTTLSingleTask    = 5 * time.Minute    // Средний TTL для одной задачи
-	CacheTTLByStatus      = 2 * time.Minute    // TTL для задач по статусу
+    CacheTTLAllTasks      = 30 * time.Minute
+    CacheTTLSingleTask    = 60 * time.Minute  
+    CacheTTLByStatus      = 5 * time.Minute
 )
 
 func NewTaskCacheRepository(baseRepo *taskRepository, cache cache.Cache) *TaskCacheRepository {
@@ -138,7 +138,7 @@ func (r *TaskCacheRepository) GetByStatus(ctx context.Context, status string) ([
 		if data, err := json.Marshal(tasks); err == nil {
 			r.cache.Set(ctx, cacheKey, data, CacheTTLByStatus)
 			r.mu.Lock()
-			r.stats.Sets++
+			r.stats.Sets++ //вынести в отдельный метод и не повторять одно и то же в GetAll, GetByID и GetByStatus
 			r.mu.Unlock()
 		}
 	}

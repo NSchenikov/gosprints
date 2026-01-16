@@ -51,7 +51,9 @@ func main() {
     userRepo := repositories.NewUserRepository(db)
 
     //обернули в кэширующий репозиторий
-    taskRepo := repositories.NewTaskCacheRepository(baseTaskRepo, appCache)
+    // taskRepo := repositories.NewTaskCacheRepository(baseTaskRepo, appCache)
+    apiTaskRepo := repositories.NewTaskCacheRepository(baseTaskRepo, appCache)
+    workerTaskRepo := baseTaskRepo
 
     queue := qpkg.NewTaskQueue(100)
 
@@ -62,20 +64,20 @@ func main() {
     notifier := ws.NewWSNotifier(hub)
 
     for i := 1; i <= 3; i++ {
-		w := worker.NewWorker(i, taskRepo, queue, notifier)
+		w := worker.NewWorker(i, workerTaskRepo, queue, notifier)
 		w.Start(ctx)
 	}
 
-    dispatcher := scheduler.NewDispatcher(taskRepo, queue, 5*time.Second)
+    dispatcher := scheduler.NewDispatcher(workerTaskRepo, queue, 30*time.Second)
     dispatcher.Start(ctx)
 
-    taskService := services.NewTaskService(taskRepo)
+    taskService := services.NewTaskService(apiTaskRepo)
 
     taskHandler := handlers.NewTaskHandler(taskService)
 	authHandler := handlers.NewAuthHandler(userRepo)
 
     //хэндлер управления кэшем
-    cacheHandler := handlers.NewCacheHandler(taskRepo)
+    cacheHandler := handlers.NewCacheHandler(apiTaskRepo)
 
     r := router.NewRouter(taskHandler, authHandler, hub, cacheHandler)
 
@@ -87,7 +89,7 @@ func main() {
     go func() {
         time.Sleep(2 * time.Second)
         log.Println("[main] Warming up cache...")
-        if err := taskRepo.WarmUpCache(context.Background()); err != nil {
+        if err := apiTaskRepo.WarmUpCache(context.Background()); err != nil {
             log.Printf("[main] Failed to warm up cache: %v", err)
         } else {
             log.Println("[main] Cache warmed up successfully")
@@ -117,3 +119,5 @@ func main() {
     time.Sleep(1 * time.Second)
     log.Println("[main] shutdown complete")
 }
+
+//eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJleHAiOjE3NzIxMDc5MDUsInVzZXIiOiJ1c2VyIn0.7qwYIZhaQxRUw7lu6f7pBqrgz5PjbcrmHuzTUqwfZVg
