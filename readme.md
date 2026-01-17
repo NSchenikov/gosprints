@@ -100,3 +100,22 @@ time curl -s -X GET "http://localhost:8080/tasks/$TASK_ID" \
 echo "=== Финальная статистика ==="
 curl -X GET http://localhost:8080/admin/cache/stats \
   -H "Authorization: Bearer YOUR_TOKEN"
+
+  //МЕТРИКИ 
+  # 1. Установить jq
+  brew install jq
+
+  # 2. Получаем метрики в JSON
+curl http://localhost:8080/metrics | jq '.'
+
+  # 3. Получаем Prometheus метрики
+  curl http://localhost:8080/metrics/prometheus
+
+  # 4. Проверяем обновление метрик
+  # Создаем задачу
+  curl -X POST http://localhost:8080/tasks \
+    -H "Authorization: Bearer TOKEN" \
+    -d '{"text": "Test"}'
+
+  # Проверяем метрики снова
+  curl http://localhost:8080/metrics | jq '.tasks'

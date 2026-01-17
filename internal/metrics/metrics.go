@@ -128,3 +128,78 @@ func (m *Metrics) APIErrorRate() float64 {
 	}
 	return float64(m.apiErrorsTotal) / float64(m.apiRequestsTotal) * 100
 }
+
+// Геттеры для всех полей
+
+// Задачи
+func (m *Metrics) GetTasksCreated() int64 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.tasksCreated
+}
+
+func (m *Metrics) GetTasksCompleted() int64 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.tasksCompleted
+}
+
+func (m *Metrics) GetTasksFailed() int64 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.tasksFailed
+}
+
+// Время обработки
+func (m *Metrics) GetProcessingCount() int64 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.processingCount
+}
+
+func (m *Metrics) GetProcessingTimeTotal() time.Duration {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.processingTimeTotal
+}
+
+// WebSocket
+func (m *Metrics) GetWSConnectionsTotal() int64 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.wsConnectionsTotal
+}
+
+// API
+func (m *Metrics) GetAPIRequestsTotal() int64 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.apiRequestsTotal
+}
+
+func (m *Metrics) GetAPIErrorsTotal() int64 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.apiErrorsTotal
+}
+
+// Получение всех метрик в виде map (удобно для JSON)
+func (m *Metrics) GetAllMetrics() map[string]interface{} {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	
+	return map[string]interface{}{
+		"tasks_created":           m.tasksCreated,
+		"tasks_completed":         m.tasksCompleted,
+		"tasks_failed":            m.tasksFailed,
+		"processing_time_total":   m.processingTimeTotal.String(),
+		"processing_count":        m.processingCount,
+		"avg_processing_time":     m.AvgProcessingTime().String(),
+		"ws_connections_active":   m.wsConnectionsActive,
+		"ws_connections_total":    m.wsConnectionsTotal,
+		"api_requests_total":      m.apiRequestsTotal,
+		"api_errors_total":        m.apiErrorsTotal,
+		"api_error_rate":          m.APIErrorRate(),
+		"uptime":                  m.Uptime().String(),
+	}
+}

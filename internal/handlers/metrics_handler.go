@@ -8,7 +8,7 @@ import (
 
 	"gosprints/internal/cache"
 	"gosprints/internal/metrics"
-	"gosprints/internal/repositories"
+	// "gosprints/internal/repositories"
 	"gosprints/internal/ws"
 	"gosprints/internal/services"
 )
@@ -53,23 +53,23 @@ func (h *MetricsHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 		
 		"tasks": map[string]interface{}{
 			"created":   m.TasksTotal(),
-			"completed": m.TasksCompleted,
-			"failed":    m.TasksFailed,
+			"completed": m.GetTasksCompleted(),
+			"failed":    m.GetTasksFailed(),
 		},
 		
 		"processing": map[string]interface{}{
 			"avg_time_ms": m.AvgProcessingTime().Milliseconds(),
-			"total_tasks": m.processingCount,
+			"total_tasks": m.GetProcessingCount(),
 		},
 		
 		"websocket": map[string]interface{}{
 			"connections_active": m.GetWSConnectionsActive(),
-			"connections_total":  m.wsConnectionsTotal,
+			"connections_total":  m.GetWSConnectionsTotal(),
 		},
 		
 		"api": map[string]interface{}{
-			"requests_total": m.apiRequestsTotal,
-			"errors_total":   m.apiErrorsTotal,
+			"requests_total": m.GetAPIRequestsTotal(),
+			"errors_total":   m.GetAPIErrorsTotal(),
 			"error_rate":     m.APIErrorRate(),
 		},
 	}
@@ -138,12 +138,12 @@ sprints_cache_sets_total %d
 sprints_uptime_seconds %.0f
 `,
 		m.TasksTotal(),
-		m.TasksCompleted,
+		m.GetTasksCompleted(),
 		m.AvgProcessingTime().Seconds()*1000,
 		m.GetWSConnectionsActive(),
-		m.wsConnectionsTotal,
-		m.apiRequestsTotal,
-		m.apiErrorsTotal,
+		m.GetWSConnectionsTotal(),
+		m.GetAPIRequestsTotal(),
+		m.GetAPIErrorsTotal(),
 		cacheHits,
 		cacheMisses,
 		cacheSets,
