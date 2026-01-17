@@ -31,6 +31,7 @@ import (
     "gosprints/internal/services"
     "gosprints/internal/ws"
     "gosprints/internal/cache"
+    "gosprints/internal/middleware"
 )
 
 func main() {
@@ -79,11 +80,15 @@ func main() {
     //хэндлер управления кэшем
     cacheHandler := handlers.NewCacheHandler(apiTaskRepo)
 
-    r := router.NewRouter(taskHandler, authHandler, hub, cacheHandler)
+    metricsHandler := handlers.NewMetricsHandler(hub, apiTaskRepo, appCache)
+
+    r := router.NewRouter(taskHandler, authHandler, hub, cacheHandler, metricsHandler)
+
+    handler := middleware.Metrics(r)
 
     srv := &http.Server{
         Addr:    ":8080",
-        Handler: r,
+        Handler: handler,
     }
 
     go func() {

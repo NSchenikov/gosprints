@@ -7,6 +7,7 @@ import (
 
 	"gosprints/internal/models"
 	"github.com/gorilla/websocket"
+	"gosprints/internal/metrics"
 )
 
 type NotificationHub struct {
@@ -28,15 +29,18 @@ func (h *NotificationHub) AddClient(userID string, conn *websocket.Conn) {
 
 	if userHasConnection {
         oldConn.Close() // завершение более раннего подключения
+		metrics.Get().DecWSConnections()
     }
 
 	h.clients[userID] = conn
+	metrics.Get().IncWSConnections()
 }
 
 func (h *NotificationHub) RemoveClient(userID string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	delete(h.clients, userID)
+	metrics.Get().DecWSConnections()
 }
 
 func (h *NotificationHub) SendToUser(userID string, evt models.TaskStatusEvent) {

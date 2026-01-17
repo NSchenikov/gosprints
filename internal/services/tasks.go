@@ -6,6 +6,7 @@ import (
 
     "gosprints/internal/models"
     "gosprints/internal/cache"
+    "gosprints/internal/metrics"
 )
 
 type TaskRepository interface {
@@ -55,6 +56,9 @@ func (s *taskService) CreateTask(ctx context.Context, task *models.Task) (models
         return models.Task{}, err
     }
     task.ID = id
+
+    //метрики
+    metrics.Get().IncTasksCreated()
 
     return *task, nil
 }

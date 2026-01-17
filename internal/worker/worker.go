@@ -2,6 +2,7 @@ package worker
 
 import (
 	"gosprints/internal/models"
+	"gosprints/internal/metrics"
 	"fmt"
 	"log"
 	"math/rand"
@@ -67,6 +68,12 @@ func (w *Worker) Start(ctx context.Context) {
 
 					end := time.Now()
 					err = w.Repo.UpdateStatus(ctx, task.ID, "completed", nil, &end)
+
+					//сбор метрики
+					metrics.Get().IncTasksCompleted()
+					processingTime := time.Since(start)
+    				metrics.Get().AddProcessingTime(processingTime)
+
 					if err != nil {
 						log.Printf("[Worker %d] Failed to update task #%d to 'completed': %v", w.ID, task.ID, err)
 						continue
