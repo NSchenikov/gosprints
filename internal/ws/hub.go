@@ -24,7 +24,9 @@ func (h *NotificationHub) AddClient(userID string, conn *websocket.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	if oldConn, ok := h.clients[userID]; ok { //oldConn != conn убрал. Сложные структуры сравнивать крайне нежелательно. Изучить сравнение
+	oldConn, userHasConnection := h.clients[userID];
+
+	if userHasConnection {
         oldConn.Close() // завершение более раннего подключения
     }
 
