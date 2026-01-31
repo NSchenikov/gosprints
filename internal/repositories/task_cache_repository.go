@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	// "log"
 
 	"gosprints/internal/cache"
 	"gosprints/internal/models"
@@ -56,6 +57,7 @@ func (r *TaskCacheRepository) saveToCache(ctx context.Context, key string, data 
 		r.cache.Set(ctx, key, marshaled, ttl)
 		
 		r.mu.Lock()
+		// log.Print("cash save, " + key)
 		r.stats.Sets++
 		r.mu.Unlock()
 	}
@@ -64,11 +66,13 @@ func (r *TaskCacheRepository) saveToCache(ctx context.Context, key string, data 
 func (r *TaskCacheRepository) getFromCache(ctx context.Context, key string, target interface{}) (bool, error) {
 	cached, err := r.cache.Get(ctx, key)
 	if err != nil || cached == nil {
+		// log.Print("cash miss, " + key)
 		r.incMiss()
 		return false, nil
 	}
 	
 	if err := json.Unmarshal(cached, target); err != nil {
+		// log.Print("cash miss, " + key)
 		r.incMiss()
 		return false, nil
 	}
