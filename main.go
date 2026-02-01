@@ -32,6 +32,8 @@ import (
     "gosprints/internal/ws"
     "gosprints/internal/cache"
     "gosprints/internal/middleware"
+    "gosprints/internal/grpc/task/client"
+	"gosprints/internal/grpc/task/server"
 )
 
 func main() {
@@ -72,9 +74,29 @@ func main() {
     dispatcher := scheduler.NewDispatcher(workerTaskRepo, queue, 30*time.Second)
     dispatcher.Start(ctx)
 
-    taskService := services.NewTaskService(apiTaskRepo)
+    //!Запуск gRPC Task Service ===
+    log.Println("[main] Запуск gRPC Task Service...")
+    go func() {
+        if err := server.StartServer(baseTaskRepo, "50051"); err != nil {
+            log.Fatalf("[main] Ошибка запуска gRPC сервера: %v", err)
+        }
+    }()
+    time.Sleep(2 * time.Second)
 
-    taskHandler := handlers.NewTaskHandler(taskService)
+    log.Println("[main] Подключение к gRPC Task Service...")
+    taskClient, err := client.NewTaskClient("localhost:50051")
+    if err != nil {
+        log.Fatalf("[main] Ошибка создания gRPC клиента: %v", err)
+    }
+    defer taskClient.Close()
+
+    //!Используем gRPC клиент вместо прямого сервиса ===
+    // taskService := services.NewTaskService(apiTaskRepo)
+
+    // taskHandler := handlers.NewTaskHandler(taskService)
+
+    // !Создание handlers с использованием gRPC клиента
+    taskHandler := handlers.NewTaskHandlerWithBoth(nil, taskClient, hub)  // !новый конструктор
 	authHandler := handlers.NewAuthHandler(userRepo)
 
     //хэндлер управления кэшем
@@ -103,6 +125,7 @@ func main() {
 
     go func() {
         fmt.Println("Сервер запущен на http://localhost:8080")
+        log.Println("[main] gRPC сервер запущен на порту 50051")
         if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
             log.Fatalf("ListenAndServe error: %v", err)
         }
