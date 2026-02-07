@@ -1,3 +1,5 @@
+файлы БД для postgresql можно взять тут https://disk.yandex.ru/d/sa3wbixqpbejRA
+
 Регистрация curl -X POST http://localhost:8080/register -H "Content-Type: application/json" -d '{"username":"имя пользователя", "password":"пароль"}'
 
 Получить токен
