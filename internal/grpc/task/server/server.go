@@ -126,6 +126,9 @@ func (s *TaskServer) DeleteTask(ctx context.Context, req *pb.DeleteTaskRequest) 
 }
 
 func (s *TaskServer) SearchTasks(ctx context.Context, req *pb.SearchTasksRequest) (*pb.SearchTasksResponse, error) {
+    // log.Printf("[gRPC Server] SearchTasks called with query=%s, userID=%s, page=%d, pageSize=%d", 
+    //     req.GetQuery(), req.GetUserId(), req.GetPage(), req.GetPageSize())
+    
     tasks, total, err := s.repo.Search(ctx, 
         req.GetQuery(), 
         req.GetUserId(),
@@ -133,9 +136,11 @@ func (s *TaskServer) SearchTasks(ctx context.Context, req *pb.SearchTasksRequest
         int(req.GetPageSize()))
     
     if err != nil {
-        log.Printf("[gRPC] Search error: %v", err)
+        // log.Printf("[gRPC Server] Search error: %v", err)
         return nil, err
     }
+    
+    // log.Printf("[gRPC Server] Search found %d tasks, total=%d", len(tasks), total)
     
     var protoTasks []*pb.Task
     for _, task := range tasks {

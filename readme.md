@@ -172,3 +172,32 @@ protoc -I api/proto/task/v1 \
 # Проверьте
 
 ls -la internal/grpc/task/pb/
+
+//полнотекстовый поиск
+
+# Создайте несколько задач с разными текстами
+
+curl -X POST http://localhost:8080/tasks \
+ -H "Authorization: Bearer $YOUR_TOKEN" \
+ -H "Content-Type: application/json" \
+ -d '{"text":"купить молоко"}'
+
+curl -X POST http://localhost:8080/tasks \
+ -H "Authorization: Bearer $YOUR_TOKEN" \
+ -H "Content-Type: application/json" \
+ -d '{"text":"купить хлеб"}'
+
+curl -X POST http://localhost:8080/tasks \
+ -H "Authorization: Bearer $YOUR_TOKEN" \
+ -H "Content-Type: application/json" \
+ -d '{"text":"позвонить маме"}'
+
+# Поиск по слову "купить" (найдет задачи с молоком и хлебом)
+
+curl -H "Authorization: Bearer $YOUR_TOKEN" "http://localhost:8080/tasks/search?q=купить"
+
+# Поиск с указанием страницы и размера страницы
+
+curl -H "Authorization: Bearer $YOUR_TOKEN" "http://localhost:8080/tasks/search?q=купить&page=1&page_size=5"
+
+поиск работает с учетом морфологии, но не всегда находит все словоформы

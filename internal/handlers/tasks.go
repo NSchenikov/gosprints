@@ -297,15 +297,19 @@ func (h *TaskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 func (h *TaskHandler) SearchTasks(w http.ResponseWriter, r *http.Request) {
     userID, err := auth.GetUserFromJWT(r)
     if err != nil {
+        // log.Printf("[SearchTasks] Auth error: %v", err)
         http.Error(w, "unauthorized", http.StatusUnauthorized)
         return
     }
+    // log.Printf("[SearchTasks] UserID: %s", userID)
     
     query := r.URL.Query().Get("q")
     if query == "" {
+        // log.Printf("[SearchTasks] Empty query")
         http.Error(w, "query parameter 'q' is required", http.StatusBadRequest)
         return
     }
+    // log.Printf("[SearchTasks] Query: %s", query)
     
     page, _ := strconv.Atoi(r.URL.Query().Get("page"))
     if page < 1 {
@@ -316,13 +320,15 @@ func (h *TaskHandler) SearchTasks(w http.ResponseWriter, r *http.Request) {
     if pageSize < 1 {
         pageSize = 10
     }
+    // log.Printf("[SearchTasks] Page: %d, PageSize: %d", page, pageSize)
     
     tasks, total, err := h.taskClient.SearchTasks(r.Context(), query, userID, int32(page), int32(pageSize))
     if err != nil {
-        log.Printf("Search error: %v", err)
+        // log.Printf("[SearchTasks] gRPC error: %v", err)
         http.Error(w, "Search failed", http.StatusInternalServerError)
         return
     }
+    // log.Printf("[SearchTasks] Found %d tasks, total: %d", len(tasks), total)
     
     // Конвертируем proto задачи в модели
     var responseTasks []models.Task
@@ -345,4 +351,5 @@ func (h *TaskHandler) SearchTasks(w http.ResponseWriter, r *http.Request) {
     
     w.Header().Set("Content-Type", "application/json")
     json.NewEncoder(w).Encode(response)
+    // log.Printf("[SearchTasks] Response sent")
 }

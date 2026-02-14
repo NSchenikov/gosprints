@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	// "log"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -87,6 +88,9 @@ func (c *TaskClient) DeleteTask(ctx context.Context, id int32) (bool, error) {
 }
 
 func (c *TaskClient) SearchTasks(ctx context.Context, query, userID string, page, pageSize int32) ([]*pb.Task, int32, error) {
+    // log.Printf("[gRPC Client] SearchTasks called with query=%s, userID=%s, page=%d, pageSize=%d", 
+    //     query, userID, page, pageSize)
+    
     resp, err := c.client.SearchTasks(ctx, &pb.SearchTasksRequest{
         Query:    query,
         UserId:   userID,
@@ -94,7 +98,11 @@ func (c *TaskClient) SearchTasks(ctx context.Context, query, userID string, page
         PageSize: pageSize,
     })
     if err != nil {
+        // log.Printf("[gRPC Client] SearchTasks error: %v", err)
         return nil, 0, err
     }
+    
+    // log.Printf("[gRPC Client] SearchTasks found %d tasks, total=%d", 
+    //     len(resp.GetTasks()), resp.GetTotal())
     return resp.GetTasks(), resp.GetTotal(), nil
 }
