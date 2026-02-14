@@ -15,4 +15,5 @@ type TaskRepository interface {
 	UpdateStatus(ctx context.Context, id int, status string, startedAt, endedAt *time.Time) error
 	Delete(ctx context.Context, id int) error
 	List(ctx context.Context, filter TaskFilter) ([]models.Task, int, error)
+	Search(ctx context.Context, query, userID string, page, limit int) ([]models.Task, int, error)
 }

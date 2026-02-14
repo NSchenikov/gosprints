@@ -12,6 +12,9 @@ func NewRouter(taskHandler *handlers.TaskHandler, authHandler *handlers.AuthHand
 
     r.Handle("GET /tasks",       authHandler.AuthMiddleware(taskHandler.GetTasks))
     r.Handle("POST /tasks",      authHandler.AuthMiddleware(taskHandler.CreateTask))
+
+    r.HandleFunc("GET /tasks/search", taskHandler.SearchTasks)
+    
     r.Handle("GET /tasks/{id}",  authHandler.AuthMiddleware(taskHandler.GetTaskByID))
     r.Handle("PUT /tasks/{id}",  authHandler.AuthMiddleware(taskHandler.UpdateTask))
     r.Handle("DELETE /tasks/{id}", authHandler.AuthMiddleware(taskHandler.DeleteTask))

@@ -5,6 +5,8 @@ import (
     "time"
 	"gosprints/internal/models"
     "context"
+    "strconv"
+    "fmt"
 )
 
 type taskRepository struct {
@@ -262,4 +264,84 @@ func (r *taskRepository) List(ctx context.Context, filter TaskFilter) ([]models.
 	}
 	
 	return tasks, total, nil
+}
+
+func (r *taskRepository) Search(ctx context.Context, query, userID string, page, limit int) ([]models.Task, int, error) {
+    // Базовый запрос с полнотекстовым поиском
+    sqlQuery := `
+        SELECT id, text, status, created_at, started_at, ended_at, user_id,
+               ts_rank(search_vector, plainto_tsquery('russian', $1)) as rank
+        FROM "Tasks"
+        WHERE search_vector @@ plainto_tsquery('russian', $1)
+    `
+    countQuery := `
+        SELECT COUNT(*)
+        FROM "Tasks"
+        WHERE search_vector @@ plainto_tsquery('russian', $1)
+    `
+    
+    args := []interface{}{query}
+    countArgs := []interface{}{query}
+    
+    // фильтр по user_id если указан
+    if userID != "" {
+        sqlQuery += " AND user_id = $" + strconv.Itoa(len(args)+1)
+        countQuery += " AND user_id = $" + strconv.Itoa(len(countArgs)+1)
+        args = append(args, userID)
+        countArgs = append(countArgs, userID)
+    }
+    
+    // Сортировка по релевантности
+    sqlQuery += " ORDER BY rank DESC"
+    
+    // Пагинация
+    if limit > 0 {
+        sqlQuery += " LIMIT $" + strconv.Itoa(len(args)+1)
+        args = append(args, limit)
+        
+        if page > 1 {
+            offset := (page - 1) * limit
+            sqlQuery += " OFFSET $" + strconv.Itoa(len(args)+1)
+            args = append(args, offset)
+        }
+    }
+    
+    // поиск
+    rows, err := r.db.QueryContext(ctx, sqlQuery, args...)
+    if err != nil {
+        return nil, 0, fmt.Errorf("search query error: %w", err)
+    }
+    defer rows.Close()
+    
+    var tasks []models.Task
+    for rows.Next() {
+        var t models.Task
+        var startedAt, endedAt sql.NullTime
+        var rank float64
+        
+        if err := rows.Scan(
+            &t.ID, &t.Text, &t.Status, &t.CreatedAt,
+            &startedAt, &endedAt, &t.UserID, &rank,
+        ); err != nil {
+            return nil, 0, fmt.Errorf("scan error: %w", err)
+        }
+        
+        if startedAt.Valid {
+            t.StartedAt = &startedAt.Time
+        }
+        if endedAt.Valid {
+            t.EndedAt = &endedAt.Time
+        }
+        
+        tasks = append(tasks, t)
+    }
+    
+    // общее количество
+    var total int
+    err = r.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&total)
+    if err != nil {
+        return nil, 0, fmt.Errorf("count query error: %w", err)
+    }
+    
+    return tasks, total, nil
 }

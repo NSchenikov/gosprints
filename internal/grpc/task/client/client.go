@@ -87,14 +87,14 @@ func (c *TaskClient) DeleteTask(ctx context.Context, id int32) (bool, error) {
 }
 
 func (c *TaskClient) SearchTasks(ctx context.Context, query, userID string, page, pageSize int32) ([]*pb.Task, int32, error) {
-	resp, err := c.client.SearchTasks(ctx, &pb.SearchTasksRequest{
-		Query:    query,
-		UserId:   userID,
-		Page:     page,
-		PageSize: pageSize,
-	})
-	if err != nil {
-		return nil, 0, err
-	}
-	return resp.GetTasks(), resp.GetTotal(), nil
+    resp, err := c.client.SearchTasks(ctx, &pb.SearchTasksRequest{
+        Query:    query,
+        UserId:   userID,
+        Page:     page,
+        PageSize: pageSize,
+    })
+    if err != nil {
+        return nil, 0, err
+    }
+    return resp.GetTasks(), resp.GetTotal(), nil
 }

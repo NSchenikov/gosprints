@@ -293,3 +293,56 @@ func (h *TaskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 		"id":      id,
 	})
 }
+
+func (h *TaskHandler) SearchTasks(w http.ResponseWriter, r *http.Request) {
+    userID, err := auth.GetUserFromJWT(r)
+    if err != nil {
+        http.Error(w, "unauthorized", http.StatusUnauthorized)
+        return
+    }
+    
+    query := r.URL.Query().Get("q")
+    if query == "" {
+        http.Error(w, "query parameter 'q' is required", http.StatusBadRequest)
+        return
+    }
+    
+    page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+    if page < 1 {
+        page = 1
+    }
+    
+    pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
+    if pageSize < 1 {
+        pageSize = 10
+    }
+    
+    tasks, total, err := h.taskClient.SearchTasks(r.Context(), query, userID, int32(page), int32(pageSize))
+    if err != nil {
+        log.Printf("Search error: %v", err)
+        http.Error(w, "Search failed", http.StatusInternalServerError)
+        return
+    }
+    
+    // Конвертируем proto задачи в модели
+    var responseTasks []models.Task
+    for _, protoTask := range tasks {
+        responseTasks = append(responseTasks, models.Task{
+            ID:        int(protoTask.GetId()),
+            Text:      protoTask.GetText(),
+            Status:    protoTask.GetStatus(),
+            UserID:    protoTask.GetUserId(),
+            CreatedAt: protoTask.GetCreatedAt().AsTime(),
+        })
+    }
+    
+    response := map[string]interface{}{
+        "tasks":     responseTasks,
+        "total":     total,
+        "page":      page,
+        "page_size": pageSize,
+    }
+    
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(response)
+}

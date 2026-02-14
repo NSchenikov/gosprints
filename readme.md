@@ -36,7 +36,7 @@ curl -X POST http://localhost:8080/admin/cache/clear \
 # 2. Проверьте - должна быть 0 статистика
 
 curl -X GET http://localhost:8080/admin/cache/stats \
- -H "Authorization: $Bearer YOUR_TOKEN"
+ -H "Authorization: Bearer $YOUR_TOKEN"
 
 # 3. Сделайте 3 запроса к API
 

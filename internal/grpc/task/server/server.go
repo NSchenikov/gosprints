@@ -126,12 +126,28 @@ func (s *TaskServer) DeleteTask(ctx context.Context, req *pb.DeleteTaskRequest) 
 }
 
 func (s *TaskServer) SearchTasks(ctx context.Context, req *pb.SearchTasksRequest) (*pb.SearchTasksResponse, error) {
-	return &pb.SearchTasksResponse{
-		Tasks:    []*pb.Task{},
-		Total:    0,
-		Page:     req.GetPage(),
-		PageSize: req.GetPageSize(),
-	}, nil
+    tasks, total, err := s.repo.Search(ctx, 
+        req.GetQuery(), 
+        req.GetUserId(),
+        int(req.GetPage()), 
+        int(req.GetPageSize()))
+    
+    if err != nil {
+        log.Printf("[gRPC] Search error: %v", err)
+        return nil, err
+    }
+    
+    var protoTasks []*pb.Task
+    for _, task := range tasks {
+        protoTasks = append(protoTasks, taskToProto(&task))
+    }
+    
+    return &pb.SearchTasksResponse{
+        Tasks:    protoTasks,
+        Total:    int32(total),
+        Page:     req.GetPage(),
+        PageSize: req.GetPageSize(),
+    }, nil
 }
 
 // Вспомогательная функция для преобразования модели в proto
