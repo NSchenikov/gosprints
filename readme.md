@@ -10,33 +10,33 @@ curl -X POST http://localhost:8080/login -H "Content-Type: application/json" -d 
 
 для отслеживания статуса задачи по WebSocket установить wscat и использовать:
 wscat -c "ws://localhost:8080/ws" \
- -H "Authorization: Bearer YOUR_TOKEN"
+ -H "Authorization: Bearer $YOUR_TOKEN"
 
-Все задачи: curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8080/tasks
+Все задачи: curl -H "Authorization: Bearer $YOUR_TOKEN" http://localhost:8080/tasks
 
 Добавить задачу:
-curl -X POST http://localhost:8080/tasks -H "Authorization: Bearer YOUR_TOKEN" -H "Content-Type: application/json" -d '{"text":"текст задачи"}'
+curl -X POST http://localhost:8080/tasks -H "Authorization: Bearer $YOUR_TOKEN" -H "Content-Type: application/json" -d '{"text":"текст задачи"}'
 
 Прочитать задачу по id:
-curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8080/tasks/{id}
+curl -H "Authorization: Bearer $YOUR_TOKEN" http://localhost:8080/tasks/{id}
 
 Обновить задачу:
-curl -X PUT http://localhost:8080/tasks/{id} -H "Authorization: Bearer YOUR_TOKEN" -H "Content-Type: application/json" -d '{"text":"Новый текст"}'
+curl -X PUT http://localhost:8080/tasks/{id} -H "Authorization: Bearer $YOUR_TOKEN" -H "Content-Type: application/json" -d '{"text":"Новый текст"}'
 
 Удалить задачу:
-curl -X DELETE -H "Authorization: Bearer YOUR_TOKEN" http://localhost:8080/tasks/{id}
+curl -X DELETE -H "Authorization: Bearer $YOUR_TOKEN" http://localhost:8080/tasks/{id}
 
 //КЭШИРОВАНИЕ:
 
 # 1. Очистите кэш (на всякий случай)
 
 curl -X POST http://localhost:8080/admin/cache/clear \
- -H "Authorization: Bearer YOUR_TOKEN"
+ -H "Authorization: Bearer $YOUR_TOKEN"
 
 # 2. Проверьте - должна быть 0 статистика
 
 curl -X GET http://localhost:8080/admin/cache/stats \
- -H "Authorization: Bearer YOUR_TOKEN"
+ -H "Authorization: $Bearer YOUR_TOKEN"
 
 # 3. Сделайте 3 запроса к API
 
@@ -44,21 +44,21 @@ echo "=== Тест API кэширования ==="
 
 echo "Запрос 1 (должен быть MISS):"
 time curl -s -X GET "http://localhost:8080/tasks" \
- -H "Authorization: Bearer YOUR_TOKEN" > /dev/null
+ -H "Authorization: Bearer $YOUR_TOKEN" > /dev/null
 
 echo "Запрос 2 (должен быть HIT, быстрее):"
 time curl -s -X GET "http://localhost:8080/tasks" \
- -H "Authorization: Bearer YOUR_TOKEN" > /dev/null
+ -H "Authorization: Bearer $YOUR_TOKEN" > /dev/null
 
 echo "Запрос 3 (должен быть HIT, еще быстрее):"
 time curl -s -X GET "http://localhost:8080/tasks" \
- -H "Authorization: Bearer YOUR_TOKEN" > /dev/null
+ -H "Authorization: Bearer $YOUR_TOKEN" > /dev/null
 
 # 4. Проверьте статистику
 
 echo "=== Статистика после 3 запросов ==="
 curl -X GET http://localhost:8080/admin/cache/stats \
- -H "Authorization: Bearer YOUR_TOKEN"
+ -H "Authorization: Bearer $YOUR_TOKEN"
 
 # ОЖИДАЕМ:
 
@@ -76,7 +76,7 @@ curl -X GET http://localhost:8080/admin/cache/stats \
 
 echo "=== Создание новой задачи ==="
 curl -X POST http://localhost:8080/tasks \
- -H "Authorization: Bearer YOUR_TOKEN" \
+ -H "Authorization: Bearer $YOUR_TOKEN" \
  -H "Content-Type: application/json" \
  -d '{"text": "Тест инвалидации кэша"}'
 
@@ -84,13 +84,13 @@ curl -X POST http://localhost:8080/tasks \
 
 echo "=== Запрос списка после создания ==="
 time curl -s -X GET "http://localhost:8080/tasks" \
- -H "Authorization: Bearer YOUR_TOKEN" > /dev/null
+ -H "Authorization: Bearer $YOUR_TOKEN" > /dev/null
 
 # 3. Проверьте статистику
 
 echo "=== Статистика после инвалидации ==="
 curl -X GET http://localhost:8080/admin/cache/stats \
- -H "Authorization: Bearer YOUR_TOKEN"
+ -H "Authorization: Bearer $YOUR_TOKEN"
 
 # ОЖИДАЕМ:
 
@@ -108,15 +108,15 @@ echo "=== Тест кэширования конкретной задачи ==="
 
 echo "Запрос задачи $TASK_ID (первый раз - MISS):"
 time curl -s -X GET "http://localhost:8080/tasks/$TASK_ID" \
- -H "Authorization: Bearer YOUR_TOKEN" > /dev/null
+ -H "Authorization: Bearer $YOUR_TOKEN" > /dev/null
 
 echo "Запрос задачи $TASK_ID (второй раз - HIT, быстрее):"
 time curl -s -X GET "http://localhost:8080/tasks/$TASK_ID" \
- -H "Authorization: Bearer YOUR_TOKEN" > /dev/null
+ -H "Authorization: Bearer $YOUR_TOKEN" > /dev/null
 
 echo "=== Финальная статистика ==="
 curl -X GET http://localhost:8080/admin/cache/stats \
- -H "Authorization: Bearer YOUR_TOKEN"
+ -H "Authorization: Bearer $YOUR_TOKEN"
 
 //МЕТРИКИ
 
@@ -137,7 +137,7 @@ curl http://localhost:8080/metrics/prometheus
 # Создаем задачу
 
 curl -X POST http://localhost:8080/tasks \
- -H "Authorization: Bearer TOKEN" \
+ -H "Authorization: Bearer $YOUR_TOKEN" \
  -d '{"text": "Test"}'
 
 # Проверяем метрики снова

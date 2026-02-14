@@ -1,272 +1,135 @@
+
 package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
-	"context"
-	"time"
 	"log"
 
+	"gosprints/internal/grpc/task/client"
 	"gosprints/internal/models"
 	"gosprints/pkg/auth"
-	"gosprints/internal/grpc/task/client"
-	"gosprints/internal/grpc/task/pb"
-	"gosprints/internal/services"
 	"gosprints/internal/ws"
 )
 
-type TaskService interface {
-    GetTasks(ctx context.Context) ([]models.Task, error)
-    GetTaskByID(ctx context.Context, id int) (models.Task, error)
-    CreateTask(ctx context.Context, task *models.Task) (models.Task, error)
-    UpdateTask(ctx context.Context, id int, task *models.Task) (models.Task, error)
-    DeleteTask(ctx context.Context, id int) error
-}
-
 type TaskHandler struct {
-	service TaskService
-	taskClient *client.TaskClient     // новый gRPC клиент
-    hub        *ws.NotificationHub
+	taskClient *client.TaskClient
+	hub        *ws.NotificationHub
 }
 
-func NewTaskHandler(service TaskService) *TaskHandler {
+func NewTaskHandler(taskClient *client.TaskClient, hub *ws.NotificationHub) *TaskHandler {
 	return &TaskHandler{
-		service: service,
-		hub: nil, //возможно придется создать
-	}
-}
-
-//!конструктор для работы с gRPC
-func NewTaskHandlerWithGRPC(taskClient *client.TaskClient, hub *ws.NotificationHub) *TaskHandler {
-    return &TaskHandler{
-        taskClient: taskClient,
-        hub:        hub,
-        service:    nil, // не используем прямой сервис
-    }
-}
-
-//комбинированный конструктор
-func NewTaskHandlerWithBoth(service TaskService, taskClient *client.TaskClient, hub *ws.NotificationHub) *TaskHandler {
-	return &TaskHandler{
-		service:    service,
 		taskClient: taskClient,
 		hub:        hub,
 	}
 }
-
-//преобразование gRPC Task в models.Task
-func convertProtoToModel(protoTask *pb.Task) models.Task {
-	task := models.Task{
-		ID:        protoTask.GetId(),
-		Text:      protoTask.GetText(),
-		Status:    protoTask.GetStatus(),
-		UserID:    protoTask.GetUserId(),
-		CreatedAt: protoTask.GetCreatedAt().AsTime(),
-	}
-
-	// Обрабатываем optional поля
-	if protoTask.GetStartedAt() != nil {
-		startedAt := protoTask.GetStartedAt().AsTime()
-		task.StartedAt = &startedAt
-	}
-
-	if protoTask.GetEndedAt() != nil {
-		endedAt := protoTask.GetEndedAt().AsTime()
-		task.EndedAt = &endedAt
-	}
-
-	return task
-}
-
-// извлечение ID из URL
-func extractID(path, prefix string) (string, error) {
-	idStr := strings.TrimPrefix(path, prefix)
-	if idStr == "" {
-		return "", fmt.Errorf("task ID is required")
-	}
-	return idStr, nil
-}
-
 func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	// Используем gRPC если доступен
-	if h.taskClient != nil {
-		tasks, total, err := h.taskClient.ListTasks(ctx, "", "", 1, 100)
-		if err != nil {
-			log.Printf("gRPC GetTasks error: %v", err)
-			http.Error(w, "Failed to get tasks", http.StatusInternalServerError)
-			return
-		}
 
-		// Конвертируем в модели
-		var modelTasks []models.Task
-		for _, protoTask := range tasks {
-			modelTasks = append(modelTasks, convertProtoToModel(protoTask))
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(modelTasks)
+	userID, err := auth.GetUserFromJWT(r)
+	if err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-
-	// возвращаем кусочек старой реализации
-	if h.service != nil {
-		tasks, err := h.service.GetTasks(ctx)
-		if err != nil {
-			fmt.Printf("Error getting tasks: %v\n", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(tasks)
+	
+	// берем параметры пагинации из query
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
+	if pageSize < 1 {
+		pageSize = 10
+	}
+	
+	status := r.URL.Query().Get("status")
+	
+	// вызов gRPC-клиента
+	tasks, total, err := h.taskClient.ListTasks(r.Context(), userID, status, int32(page), int32(pageSize))
+	if err != nil {
+		log.Printf("Error getting tasks: %v\n", err)
+		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
-
-	http.Error(w, "Handler not configured", http.StatusInternalServerError)
-}
-
-// посмотреть задачи
-func (h *TaskHandler) GetQueueStatus(w http.ResponseWriter, r *http.Request) {
-	if h.service != nil {
-		str, _ := h.service.GetTasks(r.Context())
-		json.NewEncoder(w).Encode(str)
-		return
+	
+	// Конвертация proto задач в модели
+	var responseTasks []models.Task
+	for _, protoTask := range tasks {
+		responseTasks = append(responseTasks, models.Task{
+			ID:        int(protoTask.GetId()),
+			Text:      protoTask.GetText(),
+			Status:    protoTask.GetStatus(),
+			UserID:    protoTask.GetUserId(),
+			CreatedAt: protoTask.GetCreatedAt().AsTime(),
+		})
 	}
-	http.Error(w, "Handler not configured", http.StatusInternalServerError)
+	
+	//инфо о пагинации
+	response := map[string]interface{}{
+		"tasks":     responseTasks,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+	log.Println("All tasks response sent")
 }
 
 func (h *TaskHandler) GetTaskByID(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	// Извлекаем ID из URL
-	idStr, err := extractID(r.URL.Path, "/tasks/")
+
+	userID, err := auth.GetUserFromJWT(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	
+	idStr := r.URL.Path[len("/tasks/"):]
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid task ID", http.StatusBadRequest)
 		return
 	}
 
-	// Используем gRPC если доступен
-	if h.taskClient != nil {
-		task, err := h.taskClient.GetTask(ctx, idStr)
-		if err != nil {
-			log.Printf("gRPC GetTask error: %v", err)
-			http.Error(w, "Task not found", http.StatusNotFound)
-			return
-		}
-
-		modelTask := convertProtoToModel(task)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(modelTask)
+	//gRPC клиент
+	task, err := h.taskClient.GetTask(r.Context(), int32(id))
+	if err != nil {
+		log.Printf("Error getting task: %v\n", err)
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+	
+	// задача принадлежит пользователю?
+	if task.GetUserId() != userID {
+		http.Error(w, "Task not found", http.StatusNotFound)
 		return
 	}
 
-	// Fallback к старой реализации
-	if h.service != nil {
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			http.Error(w, "Invalid task ID", http.StatusBadRequest)
-			return
-		}
-
-		task, err := h.service.GetTaskByID(ctx, id)
-		if err != nil {
-			fmt.Printf("Error getting task: %v\n", err)
-			http.Error(w, "Task not found", http.StatusNotFound)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(task)
-		return
+	// Конвертация в модель
+	response := models.Task{
+		ID:        int(task.GetId()),
+		Text:      task.GetText(),
+		Status:    task.GetStatus(),
+		UserID:    task.GetUserId(),
+		CreatedAt: task.GetCreatedAt().AsTime(),
 	}
 
-	http.Error(w, "Handler not configured", http.StatusInternalServerError)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+	log.Println("Task response sent")
 }
 
 func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
 	userID, err := auth.GetUserFromJWT(r)
-    if err != nil {
-        http.Error(w, "unauthorized", http.StatusUnauthorized)
-        return
-    }
-
-	var input struct {
-        Text string `json:"text"`
-    }
-
-    if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-        http.Error(w, "Invalid JSON", http.StatusBadRequest)
-        return
-    }
-
-	// Используем gRPC если доступен
-	if h.taskClient != nil {
-		task, err := h.taskClient.CreateTask(ctx, input.Text, userID)
-		if err != nil {
-			log.Printf("gRPC CreateTask error: %v", err)
-			http.Error(w, "Failed to create task", http.StatusInternalServerError)
-			return
-		}
-
-		// уведомление через WebSocket
-		if h.hub != nil {
-			event := models.TaskStatusEvent{
-				TaskID:    task.GetId(),
-				Status:    task.GetStatus(),
-				UserID:    userID,
-				Timestamp: time.Now(),
-			}
-			h.hub.SendToUser(userID, event)
-		}
-
-		// Конвертация ответа
-		modelTask := convertProtoToModel(task)
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(modelTask)
-		return
-	}
-
-	// Fallback к старой реализации
-	if h.service != nil {
-		task := &models.Task{
-			Text:   input.Text,
-			UserID: userID,
-		}
-
-		created, err := h.service.CreateTask(ctx, task)
-		if err != nil {
-			log.Printf("CreateTask DB error: %v", err)
-			http.Error(w, "Failed to insert into DB", http.StatusInternalServerError)
-			return
-		}
-
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(created)
-		return
-	}
-
-	http.Error(w, "Handler not configured", http.StatusInternalServerError)
-}
-
-func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// Извлекаем ID из URL
-	idStr, err := extractID(r.URL.Path, "/tasks/")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	var input struct {
-		Text   string `json:"text"`
-		Status string `json:"status"`
+		Text string `json:"text"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -274,102 +137,127 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Используем gRPC если доступен
-	if h.taskClient != nil {
-		task, err := h.taskClient.UpdateTask(ctx, idStr, input.Text, input.Status)
-		if err != nil {
-			log.Printf("gRPC UpdateTask error: %v", err)
-			http.Error(w, "Failed to update task", http.StatusNotFound)
-			return
-		}
-
-		modelTask := convertProtoToModel(task)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(modelTask)
+	//gRPC клиент
+	task, err := h.taskClient.CreateTask(r.Context(), input.Text, userID)
+	if err != nil {
+		log.Printf("CreateTask error: %v", err)
+		http.Error(w, "Failed to create task", http.StatusInternalServerError)
 		return
 	}
 
-	// Fallback к старой реализации
-	if h.service != nil {
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			http.Error(w, "Invalid task ID", http.StatusBadRequest)
-			return
-		}
+	// Конвертируем в модель для ответа
+	response := models.Task{
+		ID:        int(task.GetId()),
+		Text:      task.GetText(),
+		Status:    task.GetStatus(),
+		UserID:    task.GetUserId(),
+		CreatedAt: task.GetCreatedAt().AsTime(),
+	}
 
-		task := &models.Task{
-			Text:   input.Text,
-			Status: input.Status,
-		}
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
+}
 
-		updated, err := h.service.UpdateTask(ctx, id, task)
-		if err != nil {
-			http.Error(w, "Failed to update task", http.StatusNotFound)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(updated)
+func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
+	userID, err := auth.GetUserFromJWT(r)
+	if err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	
+	idStr := r.URL.Path[len("/tasks/"):]
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid task ID", http.StatusBadRequest)
 		return
 	}
 
-	http.Error(w, "Handler not configured", http.StatusInternalServerError)
+	// задача принадлежит пользователю?
+	task, err := h.taskClient.GetTask(r.Context(), int32(id))
+	if err != nil {
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+	
+	if task.GetUserId() != userID {
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+
+	var input struct {
+		Text   string `json:"text"`
+		Status string `json:"status"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// gRPC клиент
+	updatedTask, err := h.taskClient.UpdateTask(r.Context(), int32(id), input.Text, input.Status)
+	if err != nil {
+		log.Printf("UpdateTask error: %v", err)
+		http.Error(w, "failed to update task", http.StatusInternalServerError)
+		return
+	}
+
+	// Конвертация в модель
+	response := models.Task{
+		ID:        int(updatedTask.GetId()),
+		Text:      updatedTask.GetText(),
+		Status:    updatedTask.GetStatus(),
+		UserID:    updatedTask.GetUserId(),
+		CreatedAt: updatedTask.GetCreatedAt().AsTime(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *TaskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	// Извлекаем ID из URL
-	idStr, err := extractID(r.URL.Path, "/tasks/")
+	userID, err := auth.GetUserFromJWT(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	
+	idStr := r.URL.Path[len("/tasks/"):]
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid task ID", http.StatusBadRequest)
 		return
 	}
 
-	// Используем gRPC если доступен
-	if h.taskClient != nil {
-		success, err := h.taskClient.DeleteTask(ctx, idStr)
-		if err != nil {
-			log.Printf("gRPC DeleteTask error: %v", err)
-			http.Error(w, "Failed to delete task", http.StatusInternalServerError)
-			return
-		}
-
-		if !success {
-			http.Error(w, "Task not found", http.StatusNotFound)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"message": "task deleted",
-			"id":      idStr,
-		})
+	// задача принадлежит пользователю?
+	task, err := h.taskClient.GetTask(r.Context(), int32(id))
+	if err != nil {
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+	
+	if task.GetUserId() != userID {
+		http.Error(w, "Task not found", http.StatusNotFound)
 		return
 	}
 
-	// Fallback к старой реализации
-	if h.service != nil {
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			http.Error(w, "Invalid task ID", http.StatusBadRequest)
-			return
-		}
-
-		if err := h.service.DeleteTask(ctx, id); err != nil {
-			http.Error(w, "Failed to delete task", http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"message": "task deleted",
-			"id":      id,
-		})
+	//gRPC клиент
+	success, err := h.taskClient.DeleteTask(r.Context(), int32(id))
+	if err != nil {
+		log.Printf("DeleteTask error: %v", err)
+		http.Error(w, "failed to delete task", http.StatusInternalServerError)
 		return
 	}
-
-	http.Error(w, "Handler not configured", http.StatusInternalServerError)
+	
+	if !success {
+		http.Error(w, "failed to delete task", http.StatusInternalServerError)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "task deleted",
+		"id":      id,
+	})
 }

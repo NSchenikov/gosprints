@@ -28,7 +28,7 @@ import (
     qpkg "gosprints/internal/queue"
     "gosprints/internal/router"
     "gosprints/internal/scheduler"
-    "gosprints/internal/services"
+    // "gosprints/internal/services"
     "gosprints/internal/ws"
     "gosprints/internal/cache"
     "gosprints/internal/middleware"
@@ -96,7 +96,7 @@ func main() {
     // taskHandler := handlers.NewTaskHandler(taskService)
 
     // !Создание handlers с использованием gRPC клиента
-    taskHandler := handlers.NewTaskHandlerWithBoth(nil, taskClient, hub)  // !новый конструктор
+    taskHandler := handlers.NewTaskHandler(taskClient, hub)
 	authHandler := handlers.NewAuthHandler(userRepo)
 
     //хэндлер управления кэшем

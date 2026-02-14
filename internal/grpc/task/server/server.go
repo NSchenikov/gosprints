@@ -1,3 +1,4 @@
+
 package server
 
 import (
@@ -8,7 +9,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"gosprints/internal/grpc/task/pb"
 	"gosprints/internal/models"
@@ -31,7 +31,12 @@ func (s *TaskServer) CreateTask(ctx context.Context, req *pb.CreateTaskRequest) 
 		Status: "pending",
 	}
 
-	createdTask, err := s.repo.Create(ctx, task)
+	id, err := s.repo.Create(ctx, task)
+	if err != nil {
+		return nil, err
+	}
+	
+	createdTask, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +47,8 @@ func (s *TaskServer) CreateTask(ctx context.Context, req *pb.CreateTaskRequest) 
 }
 
 func (s *TaskServer) GetTask(ctx context.Context, req *pb.GetTaskRequest) (*pb.GetTaskResponse, error) {
-	task, err := s.repo.GetByID(ctx, req.GetId())
+	id := int(req.GetId())
+	task, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -79,13 +85,25 @@ func (s *TaskServer) ListTasks(ctx context.Context, req *pb.ListTasksRequest) (*
 }
 
 func (s *TaskServer) UpdateTask(ctx context.Context, req *pb.UpdateTaskRequest) (*pb.UpdateTaskResponse, error) {
-	task := &models.Task{
-		ID:     req.GetId(),
-		Text:   req.GetText(),
-		Status: req.GetStatus(),
+	id := int(req.GetId())
+	existingTask, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
 	}
-
-	updatedTask, err := s.repo.Update(ctx, task)
+	
+	if req.GetText() != "" {
+		existingTask.Text = req.GetText()
+	}
+	if req.GetStatus() != "" {
+		existingTask.Status = req.GetStatus()
+	}
+	
+	err = s.repo.Update(ctx, existingTask)
+	if err != nil {
+		return nil, err
+	}
+	
+	updatedTask, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +114,8 @@ func (s *TaskServer) UpdateTask(ctx context.Context, req *pb.UpdateTaskRequest) 
 }
 
 func (s *TaskServer) DeleteTask(ctx context.Context, req *pb.DeleteTaskRequest) (*pb.DeleteTaskResponse, error) {
-	err := s.repo.Delete(ctx, req.GetId())
+	id := int(req.GetId())
+	err := s.repo.Delete(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +136,8 @@ func (s *TaskServer) SearchTasks(ctx context.Context, req *pb.SearchTasksRequest
 
 // Вспомогательная функция для преобразования модели в proto
 func taskToProto(task *models.Task) *pb.Task {
-	protoTask := &pb.Task{
-		Id:        task.ID,
+	protoTask := &pb.Task{ 
+		Id:        int32(task.ID),
 		Text:      task.Text,
 		Status:    task.Status,
 		UserId:    task.UserID,

@@ -1,14 +1,14 @@
+
 syntax = "proto3";
 
 package task.v1;
 
-option go_package = "gosprints/api/proto/task/v1;taskv1";
+option go_package = "gosprints/internal/grpc/task/pb";
 
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/wrappers.proto";
 
 message Task {
-    string id = 1;
+    int32 id = 1;  // поменял string на int32
     string text = 2;
     string status = 3;
     string user_id = 4;
@@ -27,7 +27,7 @@ message CreateTaskResponse {
 }
 
 message GetTaskRequest {
-    string id = 1;
+    int32 id = 1;  // поменял string на int32
 }
 
 message GetTaskResponse {
@@ -49,7 +49,7 @@ message ListTasksResponse {
 }
 
 message UpdateTaskRequest {
-    string id = 1;
+    int32 id = 1;  // Изменили string на int32
     string text = 2;
     string status = 3;
 }
@@ -59,7 +59,7 @@ message UpdateTaskResponse {
 }
 
 message DeleteTaskRequest {
-    string id = 1;
+    int32 id = 1;  // поменял string на int32
 }
 
 message DeleteTaskResponse {

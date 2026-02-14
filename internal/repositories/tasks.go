@@ -11,6 +11,13 @@ type taskRepository struct {
 	db *sql.DB
 }
 
+type TaskFilter struct {
+	UserID string
+	Status string
+	Page   int
+	Limit  int
+}
+
 func NewTaskRepository(db *sql.DB) *taskRepository {
 	return &taskRepository{db: db}
 }
@@ -167,4 +174,92 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
 func (r *taskRepository) Delete(ctx context.Context, id int) error {
     _, err := r.db.ExecContext(ctx, `DELETE FROM "Tasks" WHERE id = $1`, id)
     return err
+}
+
+func (r *taskRepository) List(ctx context.Context, filter TaskFilter) ([]models.Task, int, error) {
+	// Базовый запрос
+	query := `SELECT id, text, status, created_at, started_at, ended_at, user_id 
+	          FROM "Tasks" WHERE 1=1`
+	countQuery := `SELECT COUNT(*) FROM "Tasks" WHERE 1=1`
+	
+	var args []interface{}
+	var countArgs []interface{}
+	argIndex := 1
+	
+	// фильтры
+	if filter.UserID != "" {
+		query += " AND user_id = $" + string('0'+byte(argIndex))
+		countQuery += " AND user_id = $" + string('0'+byte(argIndex))
+		args = append(args, filter.UserID)
+		countArgs = append(countArgs, filter.UserID)
+		argIndex++
+	}
+	
+	if filter.Status != "" {
+		query += " AND status = $" + string('0'+byte(argIndex))
+		countQuery += " AND status = $" + string('0'+byte(argIndex))
+		args = append(args, filter.Status)
+		countArgs = append(countArgs, filter.Status)
+		argIndex++
+	}
+	
+	// сортировка и пагинация
+	query += " ORDER BY created_at DESC"
+	
+	if filter.Limit > 0 {
+		query += " LIMIT $" + string('0'+byte(argIndex))
+		args = append(args, filter.Limit)
+		argIndex++
+		
+		if filter.Page > 1 {
+			offset := (filter.Page - 1) * filter.Limit
+			query += " OFFSET $" + string('0'+byte(argIndex))
+			args = append(args, offset)
+			argIndex++
+		}
+	}
+	
+	// запрос для получения задач
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	
+	var tasks []models.Task
+	for rows.Next() {
+		var t models.Task
+		var startedAt sql.NullTime
+		var endedAt sql.NullTime
+		
+		if err := rows.Scan(
+			&t.ID,
+			&t.Text,
+			&t.Status,
+			&t.CreatedAt,
+			&startedAt,
+			&endedAt,
+			&t.UserID,
+		); err != nil {
+			return nil, 0, err
+		}
+		
+		if startedAt.Valid {
+			t.StartedAt = &startedAt.Time
+		}
+		if endedAt.Valid {
+			t.EndedAt = &endedAt.Time
+		}
+		
+		tasks = append(tasks, t)
+	}
+	
+	// Получаем общее количество
+	var total int
+	err = r.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+	
+	return tasks, total, nil
 }
