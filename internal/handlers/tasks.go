@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"log"
+	"time"
 
 	"gosprints/internal/grpc/task/client"
 	"gosprints/internal/models"
@@ -145,6 +146,17 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//ws-уведомление
+	if h.hub != nil {
+        h.hub.SendToUser(userID, models.TaskStatusEvent{
+            Type:      "task_created",
+            TaskID:    int(task.GetId()),
+            Text:      task.GetText(),
+            Status:    task.GetStatus(),
+            Timestamp: time.Now(),
+        })
+    }
+
 	// Конвертируем в модель для ответа
 	response := models.Task{
 		ID:        int(task.GetId()),
@@ -202,6 +214,16 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.hub != nil {
+        h.hub.SendToUser(userID, models.TaskStatusEvent{
+            Type:      "task_updated",
+            TaskID:    int(updatedTask.GetId()),
+            Text:      updatedTask.GetText(),
+            Status:    updatedTask.GetStatus(),
+            Timestamp: time.Now(),
+        })
+    }
+
 	// Конвертация в модель
 	response := models.Task{
 		ID:        int(updatedTask.GetId()),
@@ -253,6 +275,16 @@ func (h *TaskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to delete task", http.StatusInternalServerError)
 		return
 	}
+
+	if h.hub != nil {
+        h.hub.SendToUser(userID, models.TaskStatusEvent{
+            Type:      "task_deleted",
+            TaskID:    id,
+            Text:      task.GetText(),  // если сохранили задачу до удаления
+            Status:    task.GetStatus(),
+            Timestamp: time.Now(),
+        })
+    }
 	
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
