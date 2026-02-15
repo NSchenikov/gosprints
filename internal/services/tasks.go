@@ -19,7 +19,7 @@ type TaskRepository interface {
     GetByStatus(ctx context.Context, status string) ([]models.Task, error)
 }
 
-type TaskCacheRepository interface {
+type TaskCacheRepository interface { //ПОЧЕМУ ОН ЗДЕСЬ? если закомментировать то будет работать? Он вызывается в main. Один и тот же интерфейс не должет содержать в себе три метода с таким разным назначением. По-хорошему они должны быть разбросаны по бизнес логике
     TaskRepository
     WarmUpCache(ctx context.Context) error
     ClearCache(ctx context.Context) error
