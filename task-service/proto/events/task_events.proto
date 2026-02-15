@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package events;
+
+option go_package = "github.com/nschenikov/gosprints/task-service/proto/events";
+
+import "google/protobuf/timestamp.proto";
+
+message TaskEvent {
+  string event_id = 1;
+  string event_type = 2;  // CREATED, UPDATED, COMPLETED, DELETED
+  int32 task_id = 3;
+  string task_text = 4;
+  string task_status = 5;
+  string user_id = 6;
+  google.protobuf.Timestamp timestamp = 7;
+}
+
+message TaskBatchEvent {
+  repeated TaskEvent events = 1;
+}

@@ -1,0 +1,93 @@
+version: "3.8"
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - microservices-net
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CREATE_TOPICS: "task-events:1:1"
+    networks:
+      - microservices-net
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_DB: tasks
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - microservices-net
+
+  task-service:
+    build: ./task-service
+    container_name: task-service
+    depends_on:
+      - postgres
+      - kafka
+    environment:
+      DATABASE_URL: postgres://postgres:password@postgres:5432/tasks?sslmode=disable
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: task-events
+    ports:
+      - "50051:50051"
+      - "8081:8081"
+    networks:
+      - microservices-net
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    depends_on:
+      - kafka
+      - postgres
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC: task-events
+      KAFKA_GROUP_ID: notification-group
+      DATABASE_URL: postgres://postgres:password@postgres:5432/notifications?sslmode=disable
+    ports:
+      - "8082:8082"
+    networks:
+      - microservices-net
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    depends_on:
+      - task-service
+      - notification-service
+    ports:
+      - "8080:8080"
+    networks:
+      - microservices-net
+
+networks:
+  microservices-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
