@@ -12,7 +12,7 @@ import (
 
 	"gosprints/internal/grpc/task/pb"
 	"gosprints/internal/models"
-	"gosprints/internal/repositories"
+	"task-service/internal/repositories"
 )
 
 type TaskServer struct {

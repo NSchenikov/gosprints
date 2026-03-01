@@ -1,10 +1,10 @@
-module api-gateway
+module notification-service
 
 go 1.21
 
 require (
-    github.com/dgrijalva/jwt-go v3.2.0+incompatible
-    google.golang.org/grpc v1.78.0
+    github.com/gorilla/websocket v1.5.3
+    github.com/segmentio/kafka-go v0.4.47
     google.golang.org/protobuf v1.36.11
     // smth else
     github.com/dgrijalva/jwt-go v3.2.0+incompatible

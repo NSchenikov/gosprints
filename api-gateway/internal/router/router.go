@@ -3,7 +3,7 @@ package router
 import (
     "net/http"
 
-    "gosprints/internal/handlers"
+    "api-gateway/internal/handlers"
     "gosprints/internal/ws"
 )
 

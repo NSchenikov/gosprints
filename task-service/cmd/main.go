@@ -11,8 +11,8 @@ import (
     "os/signal"
     "syscall"
 
-    "gosprints/pkg/database"
-    "gosprints/internal/repositories"
+    "task-service/pkg/database"
+    "task-service/internal/repositories"
     "gosprints/task-service/internal/handlers" //подправил импорт хэндлеров, но пока не перенес весь старый проект в текущий сервис
     "gosprints/internal/worker"
     qpkg "gosprints/internal/queue"
