@@ -89,4 +89,29 @@ service TaskService {
     rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse);
     rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse);
     rpc SearchTasks(SearchTasksRequest) returns (SearchTasksResponse);
+    rpc GetUserByUsername(GetUserByUsernameRequest) returns (GetUserByUsernameResponse);
+    rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+}
+
+message User {
+    int32 id = 1;
+    string username = 2;
+    string password = 3;  // только для создания, не возвращать в ответах
+}
+
+message GetUserByUsernameRequest {
+    string username = 1;
+}
+
+message GetUserByUsernameResponse {
+    User user = 1;
+}
+
+message CreateUserRequest {
+    string username = 1;
+    string password = 2;
+}
+
+message CreateUserResponse {
+    User user = 1;
 }

@@ -25,30 +25,43 @@
 ├── task-service/ # существующий проект + адаптация
 │ ├── cmd/
 │ ├── internal/
-│ ├── proto/
-│ │ └── events/ # события для Kafka
-│ │ └── task_events.proto
-│ └── docker/
+│ │ ├── cache/
+│ │ ├── grpc/
+│ │ ├── handlers/
+│ │ ├── kafka/ # продюсер событий
+│ │ ├── queue/
+│ │ ├── repositories/
+│ │ ├── scheduler/
+│ │ └── worker/
+│ ├── database/ # подключение к БД
+│ ├── migrations/ # SQL миграции
+│ ├── api/
+│ │ ├── proto/
+│ │ │ ├── task/ # gRPC контракт
+│ │ │ └── events/ # события для Kafka
+│ └── go.mod
 │
 ├── notification-service/ # новый сервис
 │ ├── cmd/
-│ │ └── main.go
 │ ├── internal/
-│ │ ├── handlers/ # WebSocket хендлеры
+│ │ ├── handlers/ #WebSocket хендлеры
 │ │ ├── kafka/ # consumer
-│ │ ├── notifiers/ # email, ws
-│ │ └── models/
-│ ├── proto/
-│ │ └── events/ # те же proto, что в task-service
-│ └── docker/
+│ │ ├── notifiers/ # email, ws (manager)
+│ │ └── ws/
+│ ├── api/proto/events/ # те же события
+│ └── go.mod
 │
-├── api-gateway/ # (можно оставить текущий)
+├── api-gateway/
 │ ├── cmd/
-│ └── internal/
+│ ├── internal/
+│ │ ├── grpc/client/
+│ │ ├── handlers/
+│ │ ├── middleware/
+│ │ └── router/
+│ ├── pkg/auth/
+│ └── go.mod
 │
-├── docker-compose.yml
-├── prometheus.yml
-└── .env
+└── docker-compose.yml
 
 ---
 

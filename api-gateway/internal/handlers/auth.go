@@ -11,7 +11,7 @@ import (
 )
 
 type AuthHandler struct {
-	userRepo repositories.UserRepository
+	userClient *client.UserClient 
 }
 
 func NewAuthHandler(userRepo repositories.UserRepository) *AuthHandler {
@@ -64,14 +64,14 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
             return
         }
 
-        user, err := h.userRepo.GetByUsername(credentials.Username)
+        user, err := h.userClient.GetByUsername(r.Context(), credentials.Username)
         if err != nil {
             fmt.Printf("User not found: %v\n", err)
             http.Error(w, "Invalid credentials", http.StatusUnauthorized)
             return
         }
 
-        if user.Password != credentials.Password {
+        if user.Password != credentials.Password { //TODO: нужно подумать над хэшированием
             fmt.Printf("Password mismatch for user: %s\n", credentials.Username)
             http.Error(w, "Invalid credentials", http.StatusUnauthorized)
             return

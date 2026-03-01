@@ -7,8 +7,8 @@ import (
     "github.com/segmentio/kafka-go"
     "google.golang.org/protobuf/proto"
     
-    events "github.com/yourusername/mentoring/notification-service/proto/events"
-    "github.com/yourusername/mentoring/notification-service/internal/notifiers"
+    events "github.com/nschenikov/gosprints/notification-service/proto/events"
+    "github.com/nschenikov/gosprints/notification-service/internal/notifiers"
 )
 
 type TaskEventConsumer struct {

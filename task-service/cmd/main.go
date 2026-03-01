@@ -13,7 +13,7 @@ import (
 
     "task-service/pkg/database"
     "task-service/internal/repositories"
-    "task-service/task-service/internal/handlers" //подправил импорт хэндлеров, но пока не перенес весь старый проект в текущий сервис
+    "task-service/internal/handlers"
     "task-service/internal/worker"
     qpkg "task-service/internal/queue"
     "task-service/internal/router"
@@ -24,7 +24,7 @@ import (
     "task-service/internal/middleware"
     "task-service/internal/grpc/task/client"
 	"task-service/internal/grpc/task/server"
-    "task-service/task-service/internal/kafka" //kafka из текущего сервиса
+    "task-service/internal/kafka" //kafka из текущего сервиса
 )
 
 func main() {
