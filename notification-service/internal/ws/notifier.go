@@ -1,6 +1,6 @@
 package ws
 
-import "gosprints/internal/models"
+import "notification-service/internal/models"
 
 type WSNotifier struct {
 	hub *NotificationHub

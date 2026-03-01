@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"gosprints/internal/models"
-	"gosprints/internal/repositories"
-	"gosprints/pkg/auth"
+	"api-gateway/internal/models"
+	"api-gateway/internal/repositories"
+	"api-gateway/pkg/auth"
 )
 
 type AuthHandler struct {

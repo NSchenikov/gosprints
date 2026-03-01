@@ -10,8 +10,8 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"gosprints/internal/grpc/task/pb"
-	"gosprints/internal/models"
+	"task-service/internal/grpc/task/pb"
+	"task-service/internal/models"
 	"task-service/internal/repositories"
 )
 

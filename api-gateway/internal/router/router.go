@@ -4,7 +4,7 @@ import (
     "net/http"
 
     "api-gateway/internal/handlers"
-    "gosprints/internal/ws"
+    "api-gateway/internal/ws"
 )
 
 func NewRouter(taskHandler *handlers.TaskHandler, authHandler *handlers.AuthHandler, hub *ws.NotificationHub, cacheHandler *handlers.CacheHandler, metricsHandler *handlers.MetricsHandler) *http.ServeMux {

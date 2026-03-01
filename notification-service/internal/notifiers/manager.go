@@ -4,8 +4,8 @@ import (
     "context"
     "log"
     
-    events "github.com/nschenikov/gosprints/notification-service/proto/events"
-    "github.com/nschenikov/gosprints/notification-service/internal/ws"
+    events "github.com/nschenikov/notification-service/notification-service/proto/events"
+    "github.com/nschenikov/notification-service/notification-service/internal/ws"
 )
 
 type Manager struct {

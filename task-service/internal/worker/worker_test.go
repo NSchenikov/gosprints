@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"gosprints/internal/models"
+	"task-service/internal/models"
 )
 
 type statusCall struct {

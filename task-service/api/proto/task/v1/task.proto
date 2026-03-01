@@ -3,7 +3,7 @@ syntax = "proto3";
 
 package task.v1;
 
-option go_package = "gosprints/internal/grpc/task/pb";
+option go_package = "task-service/internal/grpc/task/pb";
 
 import "google/protobuf/timestamp.proto";
 

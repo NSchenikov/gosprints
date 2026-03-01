@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"gosprints/pkg/auth"
+	"notification-service/pkg/auth"
 )
 
 var upgrader = websocket.Upgrader{

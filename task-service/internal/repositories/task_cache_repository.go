@@ -8,9 +8,9 @@ import (
 	"time"
 	// "log"
 
-	"gosprints/internal/cache"
-	"gosprints/internal/models"
-	"gosprints/internal/services"
+	"task-service/internal/cache"
+	"task-service/internal/models"
+	"task-service/internal/services"
 )
 
 type TaskCacheRepository struct {

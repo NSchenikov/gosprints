@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"context"
-	"gosprints/internal/models"
+	"task-service/internal/models"
 	"time"
 )
 

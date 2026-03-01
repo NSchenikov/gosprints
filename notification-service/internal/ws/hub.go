@@ -5,9 +5,9 @@ import (
 	"log"
 	"sync"
 
-	"gosprints/internal/models"
+	"notification-service/internal/models"
 	"github.com/gorilla/websocket"
-	"gosprints/internal/metrics"
+	"notification-service/internal/metrics"
 )
 
 type NotificationHub struct {

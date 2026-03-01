@@ -827,7 +827,7 @@ const file_task_proto_rawDesc = "" +
 	"UpdateTask\x12\x1a.task.v1.UpdateTaskRequest\x1a\x1b.task.v1.UpdateTaskResponse\x12E\n" +
 	"\n" +
 	"DeleteTask\x12\x1a.task.v1.DeleteTaskRequest\x1a\x1b.task.v1.DeleteTaskResponse\x12H\n" +
-	"\vSearchTasks\x12\x1b.task.v1.SearchTasksRequest\x1a\x1c.task.v1.SearchTasksResponseB!Z\x1fgosprints/internal/grpc/task/pbb\x06proto3"
+	"\vSearchTasks\x12\x1b.task.v1.SearchTasksRequest\x1a\x1c.task.v1.SearchTasksResponseB!Z\x1ftask-service/internal/grpc/task/pbb\x06proto3"
 
 var (
 	file_task_proto_rawDescOnce sync.Once

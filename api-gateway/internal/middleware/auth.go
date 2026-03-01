@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"gosprints/pkg/auth"
+	"api-gateway/pkg/auth"
 	"github.com/dgrijalva/jwt-go"
 )
 

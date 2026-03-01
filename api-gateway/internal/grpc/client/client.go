@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"gosprints/internal/grpc/task/pb"
+	"api-gateway/internal/grpc/task/pb"
 )
 
 type TaskClient struct {

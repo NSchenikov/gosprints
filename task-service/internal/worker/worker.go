@@ -1,8 +1,8 @@
 package worker
 
 import (
-	"gosprints/internal/models"
-	"gosprints/internal/metrics"
+	"task-service/internal/models"
+	"task-service/internal/metrics"
 	"fmt"
 	"log"
 	"math/rand"

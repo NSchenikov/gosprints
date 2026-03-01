@@ -8,11 +8,11 @@ import (
 	"log"
 	"time"
 
-	"gosprints/internal/grpc/task/client"
-	"gosprints/internal/models"
-	"gosprints/pkg/auth"
-	// "gosprints/internal/ws"
-	"gosprints/internal/kafka"
+	"task-service/internal/grpc/task/client"
+	"task-service/internal/models"
+	"task-service/pkg/auth"
+	// "task-service/internal/ws"
+	"task-service/internal/kafka"
 )
 
 type TaskHandler struct {

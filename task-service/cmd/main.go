@@ -13,18 +13,18 @@ import (
 
     "task-service/pkg/database"
     "task-service/internal/repositories"
-    "gosprints/task-service/internal/handlers" //подправил импорт хэндлеров, но пока не перенес весь старый проект в текущий сервис
-    "gosprints/internal/worker"
-    qpkg "gosprints/internal/queue"
-    "gosprints/internal/router"
-    "gosprints/internal/scheduler"
-    // "gosprints/internal/services"
-    "gosprints/internal/ws"
-    "gosprints/internal/cache"
-    "gosprints/internal/middleware"
-    "gosprints/internal/grpc/task/client"
-	"gosprints/internal/grpc/task/server"
-    "gosprints/task-service/internal/kafka" //kafka из текущего сервиса
+    "task-service/task-service/internal/handlers" //подправил импорт хэндлеров, но пока не перенес весь старый проект в текущий сервис
+    "task-service/internal/worker"
+    qpkg "task-service/internal/queue"
+    "task-service/internal/router"
+    "task-service/internal/scheduler"
+    // "task-service/internal/services"
+    "task-service/internal/ws"
+    "task-service/internal/cache"
+    "task-service/internal/middleware"
+    "task-service/internal/grpc/task/client"
+	"task-service/internal/grpc/task/server"
+    "task-service/task-service/internal/kafka" //kafka из текущего сервиса
 )
 
 func main() {

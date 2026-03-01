@@ -10,7 +10,7 @@ import (
     "google.golang.org/protobuf/proto"
     "google.golang.org/protobuf/types/known/timestamppb"
     
-    events "github.com/nschenikov/gosprints/task-service/proto/events"
+    events "github.com/nschenikov/task-service/task-service/proto/events"
 )
 
 type TaskEventProducer struct {
