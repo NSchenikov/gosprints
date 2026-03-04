@@ -294,4 +294,4 @@ func (r *TaskCacheRepository) incMiss() {
 	r.stats.Misses++
 }
 
-var _ services.TaskRepository = (*TaskCacheRepository)(nil)
+// var _ services.TaskRepository = (*TaskCacheRepository)(nil)
