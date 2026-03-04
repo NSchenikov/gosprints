@@ -2,6 +2,8 @@ module github.com/nschenikov/gosprints/task-service
 
 go 1.25.1
 
+replace github.com/nschenikov/gosprints/task-service => ./
+
 require (
 	github.com/lib/pq v1.11.2
 	github.com/segmentio/kafka-go v0.4.50

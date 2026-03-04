@@ -11,20 +11,16 @@ import (
     "os/signal"
     "syscall"
 
-    "task-service/pkg/database"
-    "task-service/internal/repositories"
-    "task-service/internal/handlers"
-    "task-service/internal/worker"
-    qpkg "task-service/internal/queue"
-    "task-service/internal/router"
-    "task-service/internal/scheduler"
-    // "task-service/internal/services"
-    "task-service/internal/ws"
-    "task-service/internal/cache"
-    "task-service/internal/middleware"
-    "task-service/internal/grpc/task/client"
-	"task-service/internal/grpc/task/server"
-    "task-service/internal/kafka" //kafka из текущего сервиса
+    "github.com/nschenikov/gosprints/task-service/database"
+    "github.com/nschenikov/gosprints/task-service/internal/repositories"
+    "github.com/nschenikov/gosprints/task-service/internal/handlers"
+    "github.com/nschenikov/gosprints/task-service/internal/worker"
+    qpkg "github.com/nschenikov/gosprints/task-service/internal/queue"
+    "github.com/nschenikov/gosprints/task-service/internal/scheduler"
+    "github.com/nschenikov/gosprints/task-service/internal/cache"
+    "github.com/nschenikov/gosprints/task-service/internal/grpc/task/client"
+	"github.com/nschenikov/gosprints/task-service/internal/grpc/task/server"
+    "github.com/nschenikov/gosprints/task-service/internal/kafka" //kafka из текущего сервиса
 )
 
 func main() {

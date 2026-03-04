@@ -3,7 +3,7 @@ package repositories
 import (
 	"database/sql"
 	"fmt"
-	"task-service/internal/models"
+	"github.com/nschenikov/gosprints/task-service/internal/models"
 )
 
 type UserRepository interface {
