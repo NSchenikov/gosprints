@@ -8,9 +8,9 @@ import (
 	"time"
 	// "log"
 
-	"github.com/nschenikov/gosprints/task-service/internal/cache"
-	"github.com/nschenikov/gosprints/task-service/internal/models"
-	// "github.com/nschenikov/gosprints/task-service/internal/services"
+	"task-service/internal/cache"
+	"task-service/internal/models"
+	// "task-service/internal/services"
 )
 
 type TaskCacheRepository struct {

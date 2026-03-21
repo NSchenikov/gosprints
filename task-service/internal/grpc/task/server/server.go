@@ -10,9 +10,9 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/nschenikov/gosprints/task-service/internal/grpc/task/pb"
-	"github.com/nschenikov/gosprints/task-service/internal/models"
-	"github.com/nschenikov/gosprints/task-service/internal/repositories"
+	"task-service/internal/grpc/task/pb"
+	"task-service/internal/models"
+	"task-service/internal/repositories"
 )
 
 type TaskServer struct {

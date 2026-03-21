@@ -1,8 +1,6 @@
-module github.com/nschenikov/gosprints/task-service
+module task-service
 
 go 1.25.1
-
-replace github.com/nschenikov/gosprints/task-service => ./
 
 require (
 	github.com/lib/pq v1.11.2

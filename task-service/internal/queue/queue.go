@@ -1,7 +1,7 @@
 package queue
 
 import (
-	"github.com/nschenikov/gosprints/task-service/internal/models"
+	"task-service/internal/models"
 	"sync"
 )
 

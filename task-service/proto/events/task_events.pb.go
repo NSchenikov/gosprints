@@ -174,7 +174,7 @@ const file_events_task_events_proto_rawDesc = "" +
 	"\auser_id\x18\x06 \x01(\tR\x06userId\x128\n" +
 	"\ttimestamp\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\";\n" +
 	"\x0eTaskBatchEvent\x12)\n" +
-	"\x06events\x18\x01 \x03(\v2\x11.events.TaskEventR\x06eventsB;Z9github.com/nschenikov/gosprints/task-service/proto/eventsb\x06proto3"
+	"\x06events\x18\x01 \x03(\v2\x11.events.TaskEventR\x06eventsB;Z9task-service/proto/eventsb\x06proto3"
 
 var (
 	file_events_task_events_proto_rawDescOnce sync.Once

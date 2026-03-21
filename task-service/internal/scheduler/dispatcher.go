@@ -5,7 +5,7 @@ import (
     "log"
     "time"
 
-    "github.com/nschenikov/gosprints/task-service/internal/models"
+    "task-service/internal/models"
 )
 
 type TaskRepository interface {

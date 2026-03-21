@@ -3,7 +3,7 @@ package repositories
 import (
 	"database/sql"
     "time"
-	"github.com/nschenikov/gosprints/task-service/internal/models"
+	"task-service/internal/models"
     "context"
     "strconv"
     "fmt"
