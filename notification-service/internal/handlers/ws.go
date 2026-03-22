@@ -6,12 +6,11 @@ import (
     
     "github.com/gorilla/websocket"
     "notification-service/internal/ws"
-    "notification-service/pkg/auth"  // для получения user_id из токена
 )
 
 var upgrader = websocket.Upgrader{
     CheckOrigin: func(r *http.Request) bool {
-        return true // для настройки в продакшене
+        return true
     },
 }
 
@@ -24,10 +23,14 @@ func NewWSHandler(hub *ws.NotificationHub) *WSHandler {
 }
 
 func (h *WSHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
-    // Получаем user_id из токена (как в api-gateway)
-    userID, err := auth.GetUserFromRequest(r) // или из query параметра
-    if err != nil {
-        http.Error(w, "unauthorized", http.StatusUnauthorized)
+    // Получаем user_id из query параметра или заголовка
+    userID := r.URL.Query().Get("user_id")
+    if userID == "" {
+        userID = r.Header.Get("X-User-ID")
+    }
+    
+    if userID == "" {
+        http.Error(w, "user_id required", http.StatusBadRequest)
         return
     }
     

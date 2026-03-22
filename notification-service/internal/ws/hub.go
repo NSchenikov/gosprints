@@ -5,10 +5,19 @@ import (
 	"log"
 	"sync"
 
-	"notification-service/internal/models"
+	// "notification-service/internal/models"  // временно 
+	// "notification-service/internal/metrics" // временно 
 	"github.com/gorilla/websocket"
-	"notification-service/internal/metrics"
 )
+
+type TaskStatusEvent struct {
+	Type      string `json:"type"`
+	TaskID    int    `json:"task_id"`
+	Text      string `json:"text"`
+	Status    string `json:"status"`
+	UserID    string `json:"user_id"` 
+	Timestamp string `json:"timestamp"`
+}
 
 type NotificationHub struct {
 	mu      sync.RWMutex
@@ -25,25 +34,25 @@ func (h *NotificationHub) AddClient(userID string, conn *websocket.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	oldConn, userHasConnection := h.clients[userID];
+	oldConn, userHasConnection := h.clients[userID]
 
 	if userHasConnection {
-        oldConn.Close() // завершение более раннего подключения
-		metrics.Get().DecWSConnections()
-    }
+		oldConn.Close()
+		// metrics.Get().DecWSConnections() // временно 
+	}
 
 	h.clients[userID] = conn
-	metrics.Get().IncWSConnections()
+	// metrics.Get().IncWSConnections() // временно 
 }
 
 func (h *NotificationHub) RemoveClient(userID string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	delete(h.clients, userID)
-	metrics.Get().DecWSConnections()
+	// metrics.Get().DecWSConnections() // временно 
 }
 
-func (h *NotificationHub) SendToUser(userID string, evt models.TaskStatusEvent) {
+func (h *NotificationHub) SendToUser(userID string, event TaskStatusEvent) {
 	h.mu.RLock()
 	conn, ok := h.clients[userID]
 	h.mu.RUnlock()
@@ -51,7 +60,7 @@ func (h *NotificationHub) SendToUser(userID string, evt models.TaskStatusEvent) 
 		return
 	}
 
-	data, err := json.Marshal(evt)
+	data, err := json.Marshal(event)
 	if err != nil {
 		log.Printf("[ws] marshal error: %v", err)
 		return

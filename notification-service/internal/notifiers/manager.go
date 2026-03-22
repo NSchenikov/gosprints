@@ -4,24 +4,75 @@ import (
     "context"
     "log"
     
-    events "github.com/nschenikov/gosprints/notification-service/proto/events"
-    "github.com/nschenikov/gosprints/notification-service/internal/ws"
+    "notification-service/internal/ws"
+    events "notification-service/proto/events"
 )
 
 type Manager struct {
-    wsHub   *ws.Hub          // WebSocket hub из пакета ws старого корневого internal 
-    emailer *EmailNotifier   // решить понадобится или нет?
+    wsHub *ws.NotificationHub  // используем NotificationHub, а не Hub
+    // emailer *EmailNotifier   // уведомлений пока не будет
+}
+
+func NewManager(wsHub *ws.NotificationHub) *Manager {
+    return &Manager{
+        wsHub: wsHub,
+        // emailer: emailer,
+    }
 }
 
 func (m *Manager) NotifyTaskCreated(ctx context.Context, event *events.TaskEvent) {
-    // уведомление по ws
-    m.wsHub.SendToUser(event.UserId, ws.Message{
-        Type: "task_created",
-        Data: event,
-    })
+    // WebSocket уведомление
+    wsEvent := ws.TaskStatusEvent{
+        Type:      "task_created",
+        TaskID:    int(event.TaskId),
+        Text:      event.TaskText,
+        Status:    event.TaskStatus,
+        UserID:    event.UserId,
+        Timestamp: event.Timestamp.AsTime().String(),
+    }
     
-    // Email (если понадобится)
-    m.emailer.Send(ctx, event.UserId, "Task Created", event.TaskText)
+    m.wsHub.SendToUser(event.UserId, wsEvent)
+    log.Printf("Notification sent for task %d: %s", event.TaskId, event.EventType)
+}
+
+func (m *Manager) NotifyTaskUpdated(ctx context.Context, event *events.TaskEvent) {
+    wsEvent := ws.TaskStatusEvent{
+        Type:      "task_updated",
+        TaskID:    int(event.TaskId),
+        Text:      event.TaskText,
+        Status:    event.TaskStatus,
+        UserID:    event.UserId,
+        Timestamp: event.Timestamp.AsTime().String(),
+    }
     
+    m.wsHub.SendToUser(event.UserId, wsEvent)
+    log.Printf("Notification sent for task %d: %s", event.TaskId, event.EventType)
+}
+
+func (m *Manager) NotifyTaskCompleted(ctx context.Context, event *events.TaskEvent) {
+    wsEvent := ws.TaskStatusEvent{
+        Type:      "task_completed",
+        TaskID:    int(event.TaskId),
+        Text:      event.TaskText,
+        Status:    event.TaskStatus,
+        UserID:    event.UserId,
+        Timestamp: event.Timestamp.AsTime().String(),
+    }
+    
+    m.wsHub.SendToUser(event.UserId, wsEvent)
+    log.Printf("Notification sent for task %d: %s", event.TaskId, event.EventType)
+}
+
+func (m *Manager) NotifyTaskDeleted(ctx context.Context, event *events.TaskEvent) {
+    wsEvent := ws.TaskStatusEvent{
+        Type:      "task_deleted",
+        TaskID:    int(event.TaskId),
+        Text:      event.TaskText,
+        Status:    event.TaskStatus,
+        UserID:    event.UserId,
+        Timestamp: event.Timestamp.AsTime().String(),
+    }
+    
+    m.wsHub.SendToUser(event.UserId, wsEvent)
     log.Printf("Notification sent for task %d: %s", event.TaskId, event.EventType)
 }

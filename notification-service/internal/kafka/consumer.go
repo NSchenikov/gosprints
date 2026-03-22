@@ -7,8 +7,9 @@ import (
     "github.com/segmentio/kafka-go"
     "google.golang.org/protobuf/proto"
     
-    events "github.com/nschenikov/gosprints/notification-service/proto/events"
-    "github.com/nschenikov/gosprints/notification-service/internal/notifiers"
+    events "notification-service/proto/events"
+    "notification-service/internal/notifiers"
+    "notification-service/internal/ws"
 )
 
 type TaskEventConsumer struct {
@@ -16,7 +17,7 @@ type TaskEventConsumer struct {
     notifier *notifiers.Manager
 }
 
-func NewTaskEventConsumer(brokers []string, topic string, groupID string, notifier *notifiers.Manager) *TaskEventConsumer {
+func NewTaskEventConsumer(brokers []string, topic string, groupID string, hub *ws.NotificationHub) *TaskEventConsumer {
     return &TaskEventConsumer{
         reader: kafka.NewReader(kafka.ReaderConfig{
             Brokers:  brokers,
@@ -25,7 +26,7 @@ func NewTaskEventConsumer(brokers []string, topic string, groupID string, notifi
             MinBytes: 10e3,
             MaxBytes: 10e6,
         }),
-        notifier: notifier,
+        notifier: notifiers.NewManager(hub),  // передаём hub
     }
 }
 

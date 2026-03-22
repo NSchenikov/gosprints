@@ -1,6 +1,8 @@
 package ws
 
-import "notification-service/internal/models"
+import (
+	"log"
+)
 
 type WSNotifier struct {
 	hub *NotificationHub
@@ -10,6 +12,7 @@ func NewWSNotifier(hub *NotificationHub) *WSNotifier {
 	return &WSNotifier{hub: hub}
 }
 
-func (n *WSNotifier) NotifyTaskStatusChanged(userID string, evt models.TaskStatusEvent) {
-	n.hub.SendToUser(userID, evt)
+func (n *WSNotifier) Notify(event TaskStatusEvent) {
+	log.Printf("[WSNotifier] Sending event: %+v", event)
+	n.hub.SendToUser(event.UserID, event)
 }
