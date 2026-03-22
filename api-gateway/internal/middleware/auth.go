@@ -1,50 +1,31 @@
-package handlers
+package middleware
 
 import (
-	"fmt"
-	"net/http"
-
-	"api-gateway/pkg/auth"
-	"github.com/dgrijalva/jwt-go"
+    "context"
+    "net/http"
+    "strings"
+    
+    "api-gateway/pkg/auth"
 )
 
-func (h *AuthHandler) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-        
+func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
         authHeader := r.Header.Get("Authorization")
-        if authHeader == "" {
-            fmt.Fprintf(w, `{"error": "Authorization header required"}`)
+        if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+            http.Error(w, "unauthorized", http.StatusUnauthorized)
             return
         }
         
-        if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
-            fmt.Fprintf(w, `{"error": "Invalid authorization format. Use: Bearer <token>"}`)
-            return
-        }
-        
-        tokenString := authHeader[7:]
-        
-        token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-            if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-                return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-            }
-            return auth.GetSignKey(), nil
-        })
-
+        // Создаём новый запрос с токеном в заголовке для GetUserFromJWT
+        // или просто передаём оригинальный r, так как GetUserFromJWT сама достанет токен
+        userID, err := auth.GetUserFromJWT(r)
         if err != nil {
-            fmt.Fprintf(w, `{"error": "Invalid token: %s"}`, err.Error())
+            http.Error(w, "unauthorized", http.StatusUnauthorized)
             return
         }
-
-        if !token.Valid {
-            w.Header().Set("Content-Type", "application/json")
-            w.WriteHeader(http.StatusUnauthorized)
-            fmt.Fprint(w, `{"error": "Invalid token"}`)
-            return
-        }
-
-        next(w, r)
-	}
+        
+        // Добавляем user_id в контекст
+        ctx := context.WithValue(r.Context(), "user_id", userID)
+        next.ServeHTTP(w, r.WithContext(ctx))
+    }
 }
-//

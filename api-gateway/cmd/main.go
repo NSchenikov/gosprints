@@ -7,7 +7,6 @@ import (
     "api-gateway/internal/grpc/client"
     "api-gateway/internal/handlers"
     "api-gateway/internal/router"
-    "api-gateway/pkg/auth"
 )
 
 func main() {
@@ -19,14 +18,8 @@ func main() {
     defer taskClient.Close()
     
     // прокси-хендлеры
-    taskProxy := &handlers.TaskProxyHandler{
-        taskClient: taskClient,
-    }
-    
-    authHandler := &handlers.AuthHandler{
-        // заглушка. Сюда нужен userRepo, но пока не понимаю где должны быть users
-        // Может, auth тоже вынести в отдельный микросервис?
-    }
+    taskProxy := handlers.NewTaskProxyHandler(taskClient)
+    authHandler := handlers.NewAuthHandler()
     
     // Настраиваем роутер
     r := router.NewRouter(taskProxy, authHandler)
