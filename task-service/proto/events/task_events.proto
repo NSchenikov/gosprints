@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package events;
 
-option go_package = "github.com/nschenikov/gosprints/task-service/proto/events";
+option go_package = "task-service/proto/events";
 
 import "google/protobuf/timestamp.proto";
 

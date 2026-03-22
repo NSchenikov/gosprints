@@ -19,12 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	TaskService_CreateTask_FullMethodName  = "/task.v1.TaskService/CreateTask"
-	TaskService_GetTask_FullMethodName     = "/task.v1.TaskService/GetTask"
-	TaskService_ListTasks_FullMethodName   = "/task.v1.TaskService/ListTasks"
-	TaskService_UpdateTask_FullMethodName  = "/task.v1.TaskService/UpdateTask"
-	TaskService_DeleteTask_FullMethodName  = "/task.v1.TaskService/DeleteTask"
-	TaskService_SearchTasks_FullMethodName = "/task.v1.TaskService/SearchTasks"
+	TaskService_CreateTask_FullMethodName        = "/task.v1.TaskService/CreateTask"
+	TaskService_GetTask_FullMethodName           = "/task.v1.TaskService/GetTask"
+	TaskService_ListTasks_FullMethodName         = "/task.v1.TaskService/ListTasks"
+	TaskService_UpdateTask_FullMethodName        = "/task.v1.TaskService/UpdateTask"
+	TaskService_DeleteTask_FullMethodName        = "/task.v1.TaskService/DeleteTask"
+	TaskService_SearchTasks_FullMethodName       = "/task.v1.TaskService/SearchTasks"
+	TaskService_GetUserByUsername_FullMethodName = "/task.v1.TaskService/GetUserByUsername"
+	TaskService_CreateUser_FullMethodName        = "/task.v1.TaskService/CreateUser"
 )
 
 // TaskServiceClient is the client API for TaskService service.
@@ -39,6 +41,8 @@ type TaskServiceClient interface {
 	UpdateTask(ctx context.Context, in *UpdateTaskRequest, opts ...grpc.CallOption) (*UpdateTaskResponse, error)
 	DeleteTask(ctx context.Context, in *DeleteTaskRequest, opts ...grpc.CallOption) (*DeleteTaskResponse, error)
 	SearchTasks(ctx context.Context, in *SearchTasksRequest, opts ...grpc.CallOption) (*SearchTasksResponse, error)
+	GetUserByUsername(ctx context.Context, in *GetUserByUsernameRequest, opts ...grpc.CallOption) (*GetUserByUsernameResponse, error)
+	CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*CreateUserResponse, error)
 }
 
 type taskServiceClient struct {
@@ -109,6 +113,26 @@ func (c *taskServiceClient) SearchTasks(ctx context.Context, in *SearchTasksRequ
 	return out, nil
 }
 
+func (c *taskServiceClient) GetUserByUsername(ctx context.Context, in *GetUserByUsernameRequest, opts ...grpc.CallOption) (*GetUserByUsernameResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUserByUsernameResponse)
+	err := c.cc.Invoke(ctx, TaskService_GetUserByUsername_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *taskServiceClient) CreateUser(ctx context.Context, in *CreateUserRequest, opts ...grpc.CallOption) (*CreateUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateUserResponse)
+	err := c.cc.Invoke(ctx, TaskService_CreateUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TaskServiceServer is the server API for TaskService service.
 // All implementations must embed UnimplementedTaskServiceServer
 // for forward compatibility.
@@ -121,6 +145,8 @@ type TaskServiceServer interface {
 	UpdateTask(context.Context, *UpdateTaskRequest) (*UpdateTaskResponse, error)
 	DeleteTask(context.Context, *DeleteTaskRequest) (*DeleteTaskResponse, error)
 	SearchTasks(context.Context, *SearchTasksRequest) (*SearchTasksResponse, error)
+	GetUserByUsername(context.Context, *GetUserByUsernameRequest) (*GetUserByUsernameResponse, error)
+	CreateUser(context.Context, *CreateUserRequest) (*CreateUserResponse, error)
 	mustEmbedUnimplementedTaskServiceServer()
 }
 
@@ -148,6 +174,12 @@ func (UnimplementedTaskServiceServer) DeleteTask(context.Context, *DeleteTaskReq
 }
 func (UnimplementedTaskServiceServer) SearchTasks(context.Context, *SearchTasksRequest) (*SearchTasksResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SearchTasks not implemented")
+}
+func (UnimplementedTaskServiceServer) GetUserByUsername(context.Context, *GetUserByUsernameRequest) (*GetUserByUsernameResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUserByUsername not implemented")
+}
+func (UnimplementedTaskServiceServer) CreateUser(context.Context, *CreateUserRequest) (*CreateUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateUser not implemented")
 }
 func (UnimplementedTaskServiceServer) mustEmbedUnimplementedTaskServiceServer() {}
 func (UnimplementedTaskServiceServer) testEmbeddedByValue()                     {}
@@ -278,6 +310,42 @@ func _TaskService_SearchTasks_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TaskService_GetUserByUsername_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserByUsernameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskServiceServer).GetUserByUsername(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TaskService_GetUserByUsername_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskServiceServer).GetUserByUsername(ctx, req.(*GetUserByUsernameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TaskService_CreateUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskServiceServer).CreateUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TaskService_CreateUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskServiceServer).CreateUser(ctx, req.(*CreateUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TaskService_ServiceDesc is the grpc.ServiceDesc for TaskService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -308,6 +376,14 @@ var TaskService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SearchTasks",
 			Handler:    _TaskService_SearchTasks_Handler,
+		},
+		{
+			MethodName: "GetUserByUsername",
+			Handler:    _TaskService_GetUserByUsername_Handler,
+		},
+		{
+			MethodName: "CreateUser",
+			Handler:    _TaskService_CreateUser_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

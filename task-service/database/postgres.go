@@ -9,7 +9,7 @@ import (
 )
 
 func InitDB() *sql.DB {
-    connStr := "postgresql://postgres:4840707101@localhost:8000/task-service?sslmode=disable"
+    connStr := "postgresql://postgres:4840707101@localhost:8000/gosprints?sslmode=disable"
 
     db, err := sql.Open("postgres", connStr)
     if err != nil {
