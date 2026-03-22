@@ -48,6 +48,37 @@ func (r *TaskCacheRepository) tasksByStatusKey(status string) string {
 }
 
 // Вспомогательные методы для работы с кэшем
+
+func (r *TaskCacheRepository) List(ctx context.Context, filter TaskFilter) ([]models.Task, int, error) {
+    // Создаём ключ для кэша на основе параметров фильтра
+    cacheKey := fmt.Sprintf("tasks:list:%s:%s:%d:%d", 
+        filter.UserID, filter.Status, filter.Page, filter.Limit)
+    
+    var result struct {
+        Tasks []models.Task `json:"tasks"`
+        Total int           `json:"total"`
+    }
+    
+    // Пробуем получить из кэша
+    if found, _ := r.getFromCache(ctx, cacheKey, &result); found {
+        return result.Tasks, result.Total, nil
+    }
+    
+    // Если нет в кэше, идём в базовый репозиторий
+    tasks, total, err := r.baseRepo.List(ctx, filter)
+    if err != nil {
+        return nil, 0, err
+    }
+    
+    // Сохраняем в кэш (используем существующий метод saveToCache)
+    r.saveToCache(ctx, cacheKey, struct {
+        Tasks []models.Task `json:"tasks"`
+        Total int           `json:"total"`
+    }{Tasks: tasks, Total: total}, CacheTTLAllTasks)
+    
+    return tasks, total, nil
+}
+
 func (r *TaskCacheRepository) saveToCache(ctx context.Context, key string, data interface{}, ttl time.Duration) {
 	if data == nil {
 		return
@@ -294,4 +325,9 @@ func (r *TaskCacheRepository) incMiss() {
 	r.stats.Misses++
 }
 
+//полнотекстовый поиск
+func (r *TaskCacheRepository) Search(ctx context.Context, query, userID string, page, limit int) ([]models.Task, int, error) {
+    // Поиск не кэшируем
+    return r.baseRepo.Search(ctx, query, userID, page, limit)
+}
 // var _ services.TaskRepository = (*TaskCacheRepository)(nil)

@@ -2,7 +2,7 @@
 package main
 
 import (
-    "fmt"
+    // "fmt"
     "log"
     "net/http"
     "time"
@@ -10,10 +10,11 @@ import (
     "os"
     "os/signal"
     "syscall"
+    "encoding/json"
 
     "task-service/database"
     "task-service/internal/repositories"
-    "task-service/internal/handlers"
+    // "task-service/internal/handlers"
     "task-service/internal/worker"
     qpkg "task-service/internal/queue"
     "task-service/internal/scheduler"
@@ -38,7 +39,7 @@ func main() {
     defer appCache.Stop()
 
     baseTaskRepo := repositories.NewTaskRepository(db)
-    userRepo := repositories.NewUserRepository(db)
+    // userRepo := repositories.NewUserRepository(db)
 
     //обернули в кэширующий репозиторий
     // taskRepo := repositories.NewTaskCacheRepository(baseTaskRepo, appCache)
@@ -50,21 +51,28 @@ func main() {
     ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
     defer stop()
 
-    hub := ws.NewNotificationHub()
-    notifier := ws.NewWSNotifier(hub)
+    // hub := ws.NewNotificationHub()
+    // notifier := ws.NewWSNotifier(hub)
 
     for i := 1; i <= 3; i++ {
-		w := worker.NewWorker(i, workerTaskRepo, queue, notifier)
+		w := worker.NewWorker(i, workerTaskRepo, queue, nil) // notifier будет работать через Kafka
 		w.Start(ctx)
 	}
 
     dispatcher := scheduler.NewDispatcher(workerTaskRepo, queue, 30*time.Second)
     dispatcher.Start(ctx)
 
-    //!Запуск gRPC Task Service ===
+    // Kafka producer (с событиями)
+    kafkaProducer := kafka.NewTaskEventProducer(
+		[]string{os.Getenv("KAFKA_BROKERS")},
+		os.Getenv("KAFKA_TOPIC"),
+    )
+    defer kafkaProducer.Close()
+
+        //!Запуск gRPC Task Service ===
     log.Println("[main] Запуск gRPC Task Service...")
     go func() {
-        if err := server.StartServer(baseTaskRepo, "50051"); err != nil {
+        if err := server.StartServer(apiTaskRepo, "50051"); err != nil {
             log.Fatalf("[main] Ошибка запуска gRPC сервера: %v", err)
         }
     }()
@@ -77,69 +85,66 @@ func main() {
     }
     defer taskClient.Close()
 
-    //!Используем gRPC клиент вместо прямого сервиса ===
-    // taskService := services.NewTaskService(apiTaskRepo)
+    // Создание taskHandler 
+    // taskHandler := handlers.NewTaskHandler(taskClient) //лучше через api-gateway
 
-    // taskHandler := handlers.NewTaskHandler(taskService)
-
-    // Kafka producer
-    kafkaProducer := kafka.NewTaskEventProducer(
-        []string{"localhost:9092"},
-        "task-events",
-    )
-    defer kafkaProducer.Close()
-
-    // Создание taskHandler с kafka продюсером вместо hub
-    taskHandler := handlers.NewTaskHandler(taskClient, kafkaProducer)
-
-	authHandler := handlers.NewAuthHandler(userRepo)
+	// authHandler := handlers.NewAuthHandler(userRepo)
 
     //хэндлер управления кэшем
-    cacheHandler := handlers.NewCacheHandler(apiTaskRepo)
+    // cacheHandler := handlers.NewCacheHandler(apiTaskRepo)
 
-    metricsHandler := handlers.NewMetricsHandler(hub, apiTaskRepo, appCache)
+    // metricsHandler := handlers.NewMetricsHandler(hub, apiTaskRepo, appCache)
 
-    r := router.NewRouter(taskHandler, authHandler, hub, cacheHandler, metricsHandler)
+    // r := router.NewRouter(taskHandler, authHandler, hub, cacheHandler, metricsHandler)
 
-    handler := middleware.Metrics(r)
+    // handler := middleware.Metrics(r)
 
-    srv := &http.Server{
-        Addr:    ":8080",
-        Handler: handler,
-    }
+    // srv := &http.Server{
+    //     Addr:    ":8080",
+    //     Handler: handler,
+    // }
 
-    go func() {
-        time.Sleep(2 * time.Second)
-        log.Println("[main] Warming up cache...")
-        if err := apiTaskRepo.WarmUpCache(context.Background()); err != nil {
-            log.Printf("[main] Failed to warm up cache: %v", err)
-        } else {
-            log.Println("[main] Cache warmed up successfully")
-        }
-    }()
+    // go func() {
+    //     time.Sleep(2 * time.Second)
+    //     log.Println("[main] Warming up cache...")
+    //     if err := apiTaskRepo.WarmUpCache(context.Background()); err != nil {
+    //         log.Printf("[main] Failed to warm up cache: %v", err)
+    //     } else {
+    //         log.Println("[main] Cache warmed up successfully")
+    //     }
+    // }()
 
-    go func() {
-        fmt.Println("Сервер запущен на http://localhost:8080")
-        log.Println("[main] gRPC сервер запущен на порту 50051")
-        if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-            log.Fatalf("ListenAndServe error: %v", err)
-        }
-    }()
+    // go func() {
+    //     fmt.Println("Сервер запущен на http://localhost:8080")
+    //     log.Println("[main] gRPC сервер запущен на порту 50051")
+    //     if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+    //         log.Fatalf("ListenAndServe error: %v", err)
+    //     }
+    // }()
+
+    http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+    })
+    go http.ListenAndServe(":8081", nil)
+
+    log.Println("[main] Task Service готов к работе")
+	log.Println("[main] gRPC сервер запущен на порту 50051")
 
     <-ctx.Done()
     log.Println("[main] shutdown signal received")
 
-    shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
+    // shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    // defer cancel()
 
-    if err := srv.Shutdown(shutdownCtx); err != nil {
-        log.Printf("[main] HTTP server Shutdown error: %v", err)
-    } else {
-        log.Println("[main] HTTP server stopped gracefully")
-    }
+    // if err := srv.Shutdown(shutdownCtx); err != nil {
+    //     log.Printf("[main] HTTP server Shutdown error: %v", err)
+    // } else {
+    //     log.Println("[main] HTTP server stopped gracefully")
+    // }
 
-    log.Println("[main] waiting a bit for workers to finish...")
-    time.Sleep(1 * time.Second)
+    // log.Println("[main] waiting a bit for workers to finish...")
+    time.Sleep(5 * time.Second)
     log.Println("[main] shutdown complete")
 }
 
