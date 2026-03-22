@@ -268,6 +268,7 @@ func (r *taskRepository) List(ctx context.Context, filter TaskFilter) ([]models.
 
 func (r *taskRepository) Search(ctx context.Context, query, userID string, page, limit int) ([]models.Task, int, error) {
     // Базовый запрос с полнотекстовым поиском
+    log.Printf("[Search] query=%s, userID=%s, page=%d, limit=%d", query, userID, page, limit)
     sqlQuery := `
         SELECT id, text, status, created_at, started_at, ended_at, user_id,
                ts_rank(search_vector, plainto_tsquery('russian', $1)) as rank

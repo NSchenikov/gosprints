@@ -23,7 +23,7 @@ func NewTaskClient(addr string) (*TaskClient, error) {
     conn, err := grpc.Dial(addr,
         grpc.WithTransportCredentials(insecure.NewCredentials()),
         grpc.WithTimeout(5*time.Second),
-        grpc.WithBlock(), // Оставляем, но с таймаутом
+        // grpc.WithBlock(), // Оставляем, но с таймаутом
     )
     if err != nil {
         return nil, err
