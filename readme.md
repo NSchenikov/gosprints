@@ -75,6 +75,10 @@ go run ./cmd/main.go
 
 cd api-gateway && go run ./cmd/main.go
 
+# 4) Запуск ETL
+
+docker compose -p mentoring up -d clickhouse
+
 ---
 
 # РАБОТА API

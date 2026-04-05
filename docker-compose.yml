@@ -10,6 +10,8 @@ services:
       - "8000:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - mentoring-network
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
@@ -19,6 +21,8 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
+    networks:
+      - mentoring-network
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
@@ -34,6 +38,24 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    networks:
+      - mentoring-network
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse
+    ports:
+      - "8123:8123" # HTTP
+      - "9000:9000" # Native protocol
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    networks:
+      - mentoring-network
+
+networks:
+  mentoring-network:
+    driver: bridge
 
 volumes:
   postgres_data:
+  clickhouse_data:
