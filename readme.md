@@ -1,203 +1,99 @@
 файлы БД для postgresql можно взять тут https://disk.yandex.ru/d/sa3wbixqpbejRA
 
-Регистрация curl -X POST http://localhost:8080/register -H "Content-Type: application/json" -d '{"username":"имя пользователя", "password":"пароль"}'
+ЗАПУСК ПРОЕКТА:
+Установить и запустить Docker
 
-Получить токен
-curl -X POST http://localhost:8080/login -H "Content-Type: application/json" -d '{"username":"имя пользователя","password":"пароль"}'
+В 1 терминале:
+переходим в корневую папку (можно использовать cd)
 
-Использовать токен для доступа:
-Заменить YOUR_TOKEN на полученный токен
+Остановить и удалить старые контейнеры с помощью docker rm -f kafka zookeeper
 
-для отслеживания статуса задачи по WebSocket установить wscat и использовать:
-wscat -c "ws://localhost:8080/ws" \
- -H "Authorization: Bearer $YOUR_TOKEN"
+# Запускаем PostgreSQL (если не запущен)
 
-Все задачи: curl -H "Authorization: Bearer $YOUR_TOKEN" http://localhost:8080/tasks
+docker run -d --name postgres \
+ -p 8000:5432 \
+ -e POSTGRES_DB=gosprints \
+ -e POSTGRES_USER=postgres \
+ -e POSTGRES_PASSWORD=4840707101 \
+ postgres:15
 
-Добавить задачу:
-curl -X POST http://localhost:8080/tasks -H "Authorization: Bearer $YOUR_TOKEN" -H "Content-Type: application/json" -d '{"text":"текст задачи"}'
+# создаем сеть
 
-Прочитать задачу по id:
-curl -H "Authorization: Bearer $YOUR_TOKEN" http://localhost:8080/tasks/{id}
+docker network create mentoring-net
 
-Обновить задачу:
-curl -X PUT http://localhost:8080/tasks/{id} -H "Authorization: Bearer $YOUR_TOKEN" -H "Content-Type: application/json" -d '{"text":"Новый текст"}'
+# Запускаем Zookeeper и Kafka в сети
 
-Удалить задачу:
-curl -X DELETE -H "Authorization: Bearer $YOUR_TOKEN" http://localhost:8080/tasks/{id}
+docker run -d --name zookeeper \
+ --platform linux/amd64 \
+ --network mentoring-net \
+ -p 2181:2181 \
+ -e ZOOKEEPER_CLIENT_PORT=2181 \
+ confluentinc/cp-zookeeper:6.2.0
 
-//КЭШИРОВАНИЕ:
+ждем sleep 10
 
-# 1. Очистите кэш (на всякий случай)
+docker run -d --name kafka \
+ --platform linux/amd64 \
+ --network mentoring-net \
+ -p 9092:9092 \
+ -e KAFKA_BROKER_ID=1 \
+ -e KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181 \
+ -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 \
+ -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 \
+ confluentinc/cp-kafka:6.2.0
 
-curl -X POST http://localhost:8080/admin/cache/clear \
- -H "Authorization: Bearer $YOUR_TOKEN"
+ждем sleep 20
 
-# 2. Проверьте - должна быть 0 статистика
+# проверяем работоспособность
 
-curl -X GET http://localhost:8080/admin/cache/stats \
- -H "Authorization: Bearer $YOUR_TOKEN"
+docker ps
 
-# 3. Сделайте 3 запроса к API
+# Создаем топик
 
-echo "=== Тест API кэширования ==="
+docker exec kafka kafka-topics --create --topic task-events --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
 
-echo "Запрос 1 (должен быть MISS):"
-time curl -s -X GET "http://localhost:8080/tasks" \
- -H "Authorization: Bearer $YOUR_TOKEN" > /dev/null
+# еще раз проверяем, должеть быть task-events
 
-echo "Запрос 2 (должен быть HIT, быстрее):"
-time curl -s -X GET "http://localhost:8080/tasks" \
- -H "Authorization: Bearer $YOUR_TOKEN" > /dev/null
+docker exec kafka kafka-topics --list --bootstrap-server 127.0.0.1:9092
 
-echo "Запрос 3 (должен быть HIT, еще быстрее):"
-time curl -s -X GET "http://localhost:8080/tasks" \
- -H "Authorization: Bearer $YOUR_TOKEN" > /dev/null
+# 1) запускаем первый терминал (task-service)
 
-# 4. Проверьте статистику
+cd task-service && go run ./cmd/main.go
 
-echo "=== Статистика после 3 запросов ==="
-curl -X GET http://localhost:8080/admin/cache/stats \
- -H "Authorization: Bearer $YOUR_TOKEN"
+# 2) запускаем второй терминал (notification-service)
 
-# ОЖИДАЕМ:
+cd notification-service
+export KAFKA_BROKERS=127.0.0.1:9092
+export KAFKA_TOPIC=task-events
+export KAFKA_GROUP_ID=notification-group
+go run ./cmd/main.go
 
-# misses=1 (первый запрос)
+# 3) Запускаем третий терминал (api-gateway)
 
-# hits=2 (второй и третий запросы)
+cd api-gateway && go run ./cmd/main.go
 
-# sets=1 (сохранение после первого запроса)
+---
 
-# hit_rate=66.7%
+# РАБОТА API
 
-//Инвалидация
+# 1. Регистрация и логин
 
-# 1. Создайте новую задачу (должна инвалидировать кэш списка)
+curl -X POST http://localhost:8080/register -H "Content-Type: application/json" -d '{"username":"user1","password":"pass"}'
+curl -X POST http://localhost:8080/login -H "Content-Type: application/json" -d '{"username":"user1","password":"pass"}'
+TOKEN="ваш_токен"
 
-echo "=== Создание новой задачи ==="
-curl -X POST http://localhost:8080/tasks \
- -H "Authorization: Bearer $YOUR_TOKEN" \
- -H "Content-Type: application/json" \
- -d '{"text": "Тест инвалидации кэша"}'
+# 2. Создать задачу
 
-# 2. Сразу запросите список задач
+curl -X POST http://localhost:8080/tasks -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"text":"Купить молоко"}'
 
-echo "=== Запрос списка после создания ==="
-time curl -s -X GET "http://localhost:8080/tasks" \
- -H "Authorization: Bearer $YOUR_TOKEN" > /dev/null
+# 3. Получить задачи
 
-# 3. Проверьте статистику
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/tasks
 
-echo "=== Статистика после инвалидации ==="
-curl -X GET http://localhost:8080/admin/cache/stats \
- -H "Authorization: Bearer $YOUR_TOKEN"
+# 4. Поиск задач
 
-# ОЖИДАЕМ:
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8080/tasks/search?q=молоко"
 
-# misses увеличилось на 1 (кэш был инвалидирован)
+# 5. WebSocket (в отдельном терминале)
 
-# sets увеличилось на 1 (новые данные сохранены в кэш)
-
-//тест конкретной задачи
-
-# Получите ID созданной задачи (например, 27)
-
-TASK_ID=27
-
-echo "=== Тест кэширования конкретной задачи ==="
-
-echo "Запрос задачи $TASK_ID (первый раз - MISS):"
-time curl -s -X GET "http://localhost:8080/tasks/$TASK_ID" \
- -H "Authorization: Bearer $YOUR_TOKEN" > /dev/null
-
-echo "Запрос задачи $TASK_ID (второй раз - HIT, быстрее):"
-time curl -s -X GET "http://localhost:8080/tasks/$TASK_ID" \
- -H "Authorization: Bearer $YOUR_TOKEN" > /dev/null
-
-echo "=== Финальная статистика ==="
-curl -X GET http://localhost:8080/admin/cache/stats \
- -H "Authorization: Bearer $YOUR_TOKEN"
-
-//МЕТРИКИ
-
-# 1. Установить jq
-
-brew install jq
-
-# 2. Получаем метрики в JSON
-
-curl http://localhost:8080/metrics | jq '.'
-
-# 3. Получаем Prometheus метрики
-
-curl http://localhost:8080/metrics/prometheus
-
-# 4. Проверяем обновление метрик
-
-# Создаем задачу
-
-curl -X POST http://localhost:8080/tasks \
- -H "Authorization: Bearer $YOUR_TOKEN" \
- -d '{"text": "Test"}'
-
-# Проверяем метрики снова
-
-curl http://localhost:8080/metrics | jq '.tasks'
-
-//gRPC
-brew install protobuf //установка
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
-which protoc-gen-go
-which protoc-gen-go-grpc
-
-# Проверьте что protoc установился
-
-protoc --version
-
-# Создайте директорию для сгенерированных файлов
-
-mkdir -p internal/grpc/task/pb
-
-# Сгенерируйте код
-
-protoc -I api/proto/task/v1 \
- --go_out=internal/grpc/task/pb \
- --go_opt=paths=source_relative \
- --go-grpc_out=internal/grpc/task/pb \
- --go-grpc_opt=paths=source_relative \
- api/proto/task/v1/task.proto
-
-# Проверьте
-
-ls -la internal/grpc/task/pb/
-
-//полнотекстовый поиск
-
-# Создайте несколько задач с разными текстами
-
-curl -X POST http://localhost:8080/tasks \
- -H "Authorization: Bearer $YOUR_TOKEN" \
- -H "Content-Type: application/json" \
- -d '{"text":"купить молоко"}'
-
-curl -X POST http://localhost:8080/tasks \
- -H "Authorization: Bearer $YOUR_TOKEN" \
- -H "Content-Type: application/json" \
- -d '{"text":"купить хлеб"}'
-
-curl -X POST http://localhost:8080/tasks \
- -H "Authorization: Bearer $YOUR_TOKEN" \
- -H "Content-Type: application/json" \
- -d '{"text":"позвонить маме"}'
-
-# Поиск по слову "купить" (найдет задачи с молоком и хлебом)
-
-curl -H "Authorization: Bearer $YOUR_TOKEN" "http://localhost:8080/tasks/search?q=купить"
-
-# Поиск с указанием страницы и размера страницы
-
-curl -H "Authorization: Bearer $YOUR_TOKEN" "http://localhost:8080/tasks/search?q=купить&page=1&page_size=5"
-
-поиск работает с учетом морфологии, но не всегда находит все словоформы
+wscat -c "ws://localhost:8082/ws?user_id=user1"
