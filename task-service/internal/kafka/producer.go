@@ -58,7 +58,10 @@ func (p *TaskEventProducer) PublishTaskEvent(ctx context.Context, eventType stri
         return fmt.Errorf("failed to marshal event: %w", err)
     }
     
-    err = p.writer.WriteMessages(ctx, kafka.Message{
+    //таймаут для Kafka
+    kafkaCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+    defer cancel()
+    err = p.writer.WriteMessages(kafkaCtx, kafka.Message{
         Key:   []byte(fmt.Sprintf("task-%d", taskID)),
         Value: data,
         Headers: []kafka.Header{

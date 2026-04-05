@@ -64,18 +64,20 @@ func main() {
 
     // Kafka producer (с событиями)
     kafkaProducer := kafka.NewTaskEventProducer(
-		[]string{os.Getenv("KAFKA_BROKERS")},
-		os.Getenv("KAFKA_TOPIC"),
+        []string{os.Getenv("KAFKA_BROKERS")},
+        os.Getenv("KAFKA_TOPIC"),
     )
     defer kafkaProducer.Close()
 
         //!Запуск gRPC Task Service ===
     log.Println("[main] Запуск gRPC Task Service...")
+
     go func() {
-        if err := server.StartServer(apiTaskRepo, "50051"); err != nil {
+        if err := server.StartServer(apiTaskRepo, kafkaProducer, "50051"); err != nil {
             log.Fatalf("[main] Ошибка запуска gRPC сервера: %v", err)
         }
     }()
+    
     time.Sleep(2 * time.Second)
 
     log.Println("[main] Подключение к gRPC Task Service...")

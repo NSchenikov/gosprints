@@ -10,18 +10,23 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"task-service/internal/grpc/task/pb"
+	pb "task-service/internal/grpc/task/pb"
 	"task-service/internal/models"
 	"task-service/internal/repositories"
+	"task-service/internal/kafka"
 )
 
 type TaskServer struct {
 	pb.UnimplementedTaskServiceServer
 	repo repositories.TaskRepository
+	producer *kafka.TaskEventProducer
 }
 
-func NewTaskServer(repo repositories.TaskRepository) *TaskServer {
-	return &TaskServer{repo: repo}
+func NewTaskServer(repo repositories.TaskRepository, producer *kafka.TaskEventProducer) *TaskServer {
+	return &TaskServer{
+		repo: repo,
+		producer: producer,
+	}
 }
 
 func (s *TaskServer) CreateTask(ctx context.Context, req *pb.CreateTaskRequest) (*pb.CreateTaskResponse, error) {
@@ -40,6 +45,19 @@ func (s *TaskServer) CreateTask(ctx context.Context, req *pb.CreateTaskRequest) 
 	if err != nil {
 		return nil, err
 	}
+
+    // Используем отдельный контекст для Kafka при публикации события kafka
+    if s.producer != nil {
+        go func() {
+            // Создаем новый контекст, который не зависит от родительского
+            kafkaCtx := context.Background()
+            err := s.producer.PublishTaskEvent(kafkaCtx, "CREATED",
+                int32(createdTask.ID), createdTask.Text, createdTask.Status, createdTask.UserID)
+            if err != nil {
+                log.Printf("[Kafka] Failed to publish event: %v", err)
+            }
+        }()
+    }
 
 	return &pb.CreateTaskResponse{
 		Task: taskToProto(createdTask),
@@ -177,14 +195,14 @@ func taskToProto(task *models.Task) *pb.Task {
 }
 
 // Запуск gRPC сервера
-func StartServer(repo repositories.TaskRepository, port string) error {
+func StartServer(repo repositories.TaskRepository, producer *kafka.TaskEventProducer, port string) error {
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		return err
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterTaskServiceServer(s, NewTaskServer(repo))
+	pb.RegisterTaskServiceServer(s, NewTaskServer(repo, producer))
 	reflection.Register(s)
 
 	log.Printf("gRPC Task Service запущен на порту %s", port)
