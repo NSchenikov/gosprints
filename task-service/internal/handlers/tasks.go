@@ -88,6 +88,15 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("[CreateTask] About to publish event, producer=%v", h.producer)
+	if h.producer != nil {
+		go h.producer.PublishTaskEvent(r.Context(), "CREATED",
+		task.GetId(), task.GetText(), task.GetStatus(), userID)
+	} else {
+        log.Printf("[CreateTask] producer is nil!")
+    }
+	log.Printf("[CreateTask] producer is nil: %v", h.producer == nil)
+
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(task)
 }

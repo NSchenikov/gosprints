@@ -4,6 +4,7 @@ import (
     "context"
     "fmt"
     "time"
+    "log"
 
     "github.com/segmentio/kafka-go"
     "google.golang.org/protobuf/proto"
@@ -17,6 +18,13 @@ type TaskEventProducer struct {
 }
 
 func NewTaskEventProducer(brokers []string, topic string) *TaskEventProducer {
+    log.Printf("[Kafka] Initializing producer: brokers=%v, topic=%s", brokers, topic)
+    
+    if len(brokers) == 0 || brokers[0] == "" {
+        log.Println("[Kafka] No brokers provided, producer disabled")
+        return nil
+    }
+    
     return &TaskEventProducer{
         writer: &kafka.Writer{
             Addr:     kafka.TCP(brokers...),
@@ -27,6 +35,14 @@ func NewTaskEventProducer(brokers []string, topic string) *TaskEventProducer {
 }
 
 func (p *TaskEventProducer) PublishTaskEvent(ctx context.Context, eventType string, taskID int32, text, status, userID string) error {
+
+    if p.writer == nil {
+        log.Println("[Kafka] Producer not configured, skipping event")
+        return nil
+    }
+    
+    log.Printf("[Kafka] Publishing event: type=%s, taskID=%d, userID=%s", eventType, taskID, userID)
+
     event := &events.TaskEvent{
         EventId:    fmt.Sprintf("%d-%d", taskID, time.Now().UnixNano()),
         EventType:  eventType,
@@ -51,9 +67,11 @@ func (p *TaskEventProducer) PublishTaskEvent(ctx context.Context, eventType stri
     })
     
     if err != nil {
+        log.Printf("[Kafka] Write error: %v", err)
         return fmt.Errorf("failed to write message: %w", err)
     }
     
+    log.Printf("[Kafka] Event published successfully")
     return nil
 }
 

@@ -58,7 +58,10 @@ docker exec kafka kafka-topics --list --bootstrap-server 127.0.0.1:9092
 
 # 1) запускаем первый терминал (task-service)
 
-cd task-service && go run ./cmd/main.go
+cd task-service
+export KAFKA_BROKERS=127.0.0.1:9092
+export KAFKA_TOPIC=task-events
+go run ./cmd/main.go
 
 # 2) запускаем второй терминал (notification-service)
 
