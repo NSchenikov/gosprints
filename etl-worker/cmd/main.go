@@ -14,7 +14,7 @@ import (
 
 func main() {
     // Подключаемс к ClickHouse
-    ch, err := storage.NewClickHouseStorage("localhost", 9000, "default")
+    ch, err := storage.NewClickHouseStorage("localhost:9000", 9000, "default")
     if err != nil {
         log.Fatal(err)
     }
@@ -35,6 +35,8 @@ func main() {
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
     go consumer.Start(ctx)
+
+    log.Println("ETL Worker started")
     
     // Graceful shutdown
     quit := make(chan os.Signal, 1)

@@ -79,6 +79,33 @@ cd api-gateway && go run ./cmd/main.go
 
 docker compose -p mentoring up -d clickhouse
 
+Проверяем:
+docker ps | grep clickhouse
+
+Подключаемся и открываем консоль clickhouse:
+docker exec -it clickhouse clickhouse-client
+
+# 5) Для создания базы и аналитики (если нужно) в консоли clickhouse выполнить
+
+CREATE DATABASE IF NOT EXISTS analytics;
+USE analytics;
+CREATE TABLE IF NOT EXISTS task_analytics (
+user_id String,
+tasks_created Int32,
+tasks_completed Int32,
+avg_completion_time Float64,
+last_event_time DateTime,
+date Date
+) ENGINE = MergeTree()
+ORDER BY (user_id, date);
+SHOW TABLES;
+exit;
+
+Затем выйти из консоли (ctrl+D)
+
+переходим cd etl-worker
+go run ./cmd/main.go
+
 ---
 
 # РАБОТА API
@@ -92,6 +119,10 @@ TOKEN="ваш_токен"
 # 2. Создать задачу
 
 curl -X POST http://localhost:8080/tasks -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"text":"Купить молоко"}'
+
+# проверить событие (аналитику) в clickhouse
+
+docker exec -it clickhouse clickhouse-client --query "SELECT \* FROM default.task_analytics"
 
 # 3. Получить задачи
 
