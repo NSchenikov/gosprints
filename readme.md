@@ -129,7 +129,7 @@ curl -X POST http://localhost:8080/register -H "Content-Type: application/json" 
 curl -X POST http://localhost:8080/login -H "Content-Type: application/json" -d '{"username":"user1","password":"pass"}'
 TOKEN="ваш_токен"
 
-# 2. Создать задачу
+# 2. Создать задачу (или лучше даже несколько для наглядности тестирования аналитики)
 
 curl -X POST http://localhost:8080/tasks -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"text":"Купить молоко"}'
 
