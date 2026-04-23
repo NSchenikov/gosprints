@@ -77,7 +77,16 @@ cd api-gateway && go run ./cmd/main.go
 
 # 4) Запуск ETL
 
-docker compose -p mentoring up -d clickhouse
+при необходимости остановить и удалить существующий контейнер
+docker rm -f clickhouse
+
+запустить (clickhouse работает с паролем)
+docker run -d --name clickhouse \
+ -p 8123:8123 \
+ -p 9000:9000 \
+ -e CLICKHOUSE_USER=default \
+ -e CLICKHOUSE_PASSWORD=clickhouse \
+ clickhouse/clickhouse-server:latest
 
 Проверяем:
 docker ps | grep clickhouse
@@ -89,21 +98,25 @@ docker exec -it clickhouse clickhouse-client
 
 CREATE DATABASE IF NOT EXISTS analytics;
 USE analytics;
+
 CREATE TABLE IF NOT EXISTS task_analytics (
 user_id String,
-tasks_created Int32,
 tasks_completed Int32,
 avg_completion_time Float64,
 last_event_time DateTime,
 date Date
-) ENGINE = MergeTree()
-ORDER BY (user_id, date);
-SHOW TABLES;
-exit;
+) ENGINE = ReplacingMergeTree(last_event_time)
+ORDER BY (user_id);
 
 Затем выйти из консоли (ctrl+D)
 
-переходим cd etl-worker
+переходим
+cd etl-worker
+
+загружаем переменные из .env
+source .env
+
+запускаем etl-worker
 go run ./cmd/main.go
 
 ---
@@ -122,7 +135,9 @@ curl -X POST http://localhost:8080/tasks -H "Authorization: Bearer $TOKEN" -H "C
 
 # проверить событие (аналитику) в clickhouse
 
-docker exec -it clickhouse clickhouse-client --query "SELECT \* FROM default.task_analytics"
+docker exec -it clickhouse clickhouse-client --query "
+SELECT user_id, tasks_completed, avg_completion_time
+FROM analytics.task_analytics FINAL
 
 # 3. Получить задачи
 

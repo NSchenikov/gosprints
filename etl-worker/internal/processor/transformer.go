@@ -13,7 +13,8 @@ import (
 
 type EventProcessor struct {
     storage   storage.AnalyticsStorage
-    userStats sync.Map // map[string]*models.TaskAnalytics
+    userStats sync.Map // userId -> *models.TaskAnalytics
+    taskStartTime sync.Map // taskId -> time.Time
 }
 
 func NewEventProcessor(storage storage.AnalyticsStorage) *EventProcessor {
@@ -25,34 +26,52 @@ func NewEventProcessor(storage storage.AnalyticsStorage) *EventProcessor {
 func (p *EventProcessor) ProcessEvent(ctx context.Context, event *events.TaskEvent) error {
     log.Printf("[ETL] Processing event: type=%s, taskID=%d", event.EventType, event.TaskId)
     
-    // Получаем или создаём статистику для пользователя
-    stats := p.getOrCreateUserStats(event.UserId)
-    
     // Обновляем статистику в зависимости от типа события
     switch event.EventType {
     case "CREATED":
-        stats.TasksCreated++
-        stats.LastEventTime = event.Timestamp.AsTime()
+        // Сохраняем время создания задачи
+        p.taskStartTime.Store(event.TaskId, event.Timestamp.AsTime())
+        log.Printf("[ETL] Stored start time for task %d", event.TaskId)
         
     case "COMPLETED":
-        stats.TasksCompleted++
-        stats.LastEventTime = event.Timestamp.AsTime()
+        // Получаем время создания
+        startTimeVal, ok := p.taskStartTime.Load(event.TaskId)
+        if !ok {
+            log.Printf("[ETL] No start time found for task %d, skipping", event.TaskId)
+            return nil
+        }
         
-        // TODO: вычисления время выполнения задачи
-        // нужно положить время создания задачи в отдельное хранилище
+        startTime := startTimeVal.(time.Time)
+        endTime := event.Timestamp.AsTime()
+        duration := endTime.Sub(startTime).Seconds()
+        
+        log.Printf("[ETL] Task %d completed in %.2f seconds", event.TaskId, duration)
+        
+        // Обновляем статистику пользователя
+        stats := p.getOrCreateUserStats(event.UserId)
+        oldAvg := stats.AvgCompletionTime
+        oldCount := stats.TasksCompleted
+        
+        stats.TasksCompleted++
+        stats.AvgCompletionTime = (oldAvg*float64(oldCount) + duration) / float64(stats.TasksCompleted)
+        stats.LastEventTime = endTime
+        stats.Date = endTime.Truncate(24 * time.Hour)
+        
+        log.Printf("[ETL] User %s: completed=%d, avg=%.2f", 
+            event.UserId, stats.TasksCompleted, stats.AvgCompletionTime)
+        
+        // Сохраняем в ClickHouse
+        if err := p.storage.SaveAnalytics(ctx, stats); err != nil {
+            log.Printf("[ETL] Failed to save analytics: %v", err)
+            return err
+        }
+        
+        p.userStats.Store(event.UserId, stats)
+        p.taskStartTime.Delete(event.TaskId)
         
     case "UPDATED":
-        stats.LastEventTime = event.Timestamp.AsTime()
+        log.Printf("[ETL] Task %d updated, status: %s", event.TaskId, event.TaskStatus)
     }
-    
-    // Укладываем статистику в хранилище
-    if err := p.storage.SaveAnalytics(ctx, stats); err != nil {
-        log.Printf("[ETL] Failed to save analytics: %v", err)
-        return err
-    }
-    
-    // Обновление кэша
-    p.userStats.Store(event.UserId, stats)
     
     return nil
 }
@@ -64,8 +83,8 @@ func (p *EventProcessor) getOrCreateUserStats(userID string) *models.TaskAnalyti
     
     stats := &models.TaskAnalytics{
         UserId:        userID,
-        TasksCreated:  0,
         TasksCompleted: 0,
+        AvgCompletionTime: 0,
         LastEventTime: time.Now(),
         Date:          time.Now().Truncate(24 * time.Hour),
     }

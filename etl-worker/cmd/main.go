@@ -14,7 +14,7 @@ import (
 
 func main() {
     // Подключаемс к ClickHouse
-    ch, err := storage.NewClickHouseStorage("localhost:9000", 9000, "default")
+    ch, err := storage.NewClickHouseStorage("localhost:9000", "default")
     if err != nil {
         log.Fatal(err)
     }

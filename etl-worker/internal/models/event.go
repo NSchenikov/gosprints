@@ -15,7 +15,7 @@ type TaskEvent struct {
 // Аналитические данные
 type TaskAnalytics struct {
     UserId            string    `json:"user_id"`
-    TasksCreated      int32     `json:"tasks_created"`
+    // TasksCreated      int32     `json:"tasks_created"`
     TasksCompleted    int32     `json:"tasks_completed"`
     AvgCompletionTime float64   `json:"avg_completion_time"`
     LastEventTime     time.Time `json:"last_event_time"`

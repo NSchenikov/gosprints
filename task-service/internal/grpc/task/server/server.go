@@ -108,6 +108,8 @@ func (s *TaskServer) UpdateTask(ctx context.Context, req *pb.UpdateTaskRequest) 
 	if err != nil {
 		return nil, err
 	}
+
+	oldStatus := existingTask.Status
 	
 	if req.GetText() != "" {
 		existingTask.Text = req.GetText()
@@ -124,6 +126,18 @@ func (s *TaskServer) UpdateTask(ctx context.Context, req *pb.UpdateTaskRequest) 
 	updatedTask, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+
+	// Публикуем COMPLETED событие, если статус изменился на "completed"
+	if s.producer != nil && oldStatus != "completed" && updatedTask.Status == "completed" {
+		go func() {
+			kafkaCtx := context.Background()
+			err := s.producer.PublishTaskEvent(kafkaCtx, "COMPLETED",
+				int32(updatedTask.ID), updatedTask.Text, updatedTask.Status, updatedTask.UserID)
+			if err != nil {
+				log.Printf("[Kafka] Failed to publish COMPLETED event: %v", err)
+			}
+		}()
 	}
 
 	return &pb.UpdateTaskResponse{

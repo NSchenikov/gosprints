@@ -46,6 +46,17 @@ func main() {
     apiTaskRepo := repositories.NewTaskCacheRepository(baseTaskRepo, appCache)
     workerTaskRepo := baseTaskRepo
 
+    var kafkaProducer *kafka.TaskEventProducer
+    if os.Getenv("KAFKA_BROKERS") != "" {
+        kafkaProducer = kafka.NewTaskEventProducer(
+            []string{os.Getenv("KAFKA_BROKERS")},
+            os.Getenv("KAFKA_TOPIC"),
+        )
+        defer kafkaProducer.Close()
+    } else {
+        log.Println("[main] KAFKA_BROKERS not set, producer disabled")
+    }
+
     queue := qpkg.NewTaskQueue(100)
 
     ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -55,7 +66,7 @@ func main() {
     // notifier := ws.NewWSNotifier(hub)
 
     for i := 1; i <= 3; i++ {
-		w := worker.NewWorker(i, workerTaskRepo, queue, nil) // notifier будет работать через Kafka
+		w := worker.NewWorker(i, workerTaskRepo, queue, nil, kafkaProducer) // notifier будет работать через Kafka
 		w.Start(ctx)
 	}
 
@@ -63,11 +74,11 @@ func main() {
     dispatcher.Start(ctx)
 
     // Kafka producer (с событиями)
-    kafkaProducer := kafka.NewTaskEventProducer(
-        []string{os.Getenv("KAFKA_BROKERS")},
-        os.Getenv("KAFKA_TOPIC"),
-    )
-    defer kafkaProducer.Close()
+    // kafkaProducer := kafka.NewTaskEventProducer(
+    //     []string{os.Getenv("KAFKA_BROKERS")},
+    //     os.Getenv("KAFKA_TOPIC"),
+    // )
+    // defer kafkaProducer.Close()
 
         //!Запуск gRPC Task Service ===
     log.Println("[main] Запуск gRPC Task Service...")

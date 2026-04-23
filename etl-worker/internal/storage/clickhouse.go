@@ -20,30 +20,29 @@ type ClickHouseStorage struct {
     conn driver.Conn
 }
 
-func NewClickHouseStorage(host string, port int, database string) (*ClickHouseStorage, error) {
+func NewClickHouseStorage(addr string, database string) (*ClickHouseStorage, error) {
     conn, err := clickhouse.Open(&clickhouse.Options{
-        Addr: []string{host},
+        Addr: []string{addr},
         Auth: clickhouse.Auth{
             Database: database,
             Username: "default",
-            Password: "",
+            Password: "clickhouse",
         },
     })
     if err != nil {
         return nil, err
     }
     
-    // Создаём таблицу
+    // Создаём таблицу для агрегированных данных c ReplacingMergeTree
     err = conn.Exec(context.Background(), `
         CREATE TABLE IF NOT EXISTS task_analytics (
             user_id String,
-            tasks_created Int32,
             tasks_completed Int32,
             avg_completion_time Float64,
             last_event_time DateTime,
             date Date
-        ) ENGINE = MergeTree()
-        ORDER BY (user_id, date)
+        ) ENGINE = ReplacingMergeTree(last_event_time)
+        ORDER BY (user_id)
     `)
     if err != nil {
         return nil, err
@@ -54,11 +53,10 @@ func NewClickHouseStorage(host string, port int, database string) (*ClickHouseSt
 
 func (s *ClickHouseStorage) SaveAnalytics(ctx context.Context, stats *models.TaskAnalytics) error {
     err := s.conn.Exec(ctx, `
-        INSERT INTO task_analytics (user_id, tasks_created, tasks_completed, avg_completion_time, last_event_time, date)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO task_analytics (user_id, tasks_completed, avg_completion_time, last_event_time, date)
+        VALUES (?, ?, ?, ?, ?)
     `,
         stats.UserId,
-        stats.TasksCreated,
         stats.TasksCompleted,
         stats.AvgCompletionTime,
         stats.LastEventTime,
@@ -70,7 +68,8 @@ func (s *ClickHouseStorage) SaveAnalytics(ctx context.Context, stats *models.Tas
         return err
     }
     
-    log.Printf("[ClickHouse] Saved analytics for user %s", stats.UserId)
+    log.Printf("[ClickHouse] Saved analytics for user %s: completed=%d, avg=%.2f", 
+        stats.UserId, stats.TasksCompleted, stats.AvgCompletionTime)
     return nil
 }
 

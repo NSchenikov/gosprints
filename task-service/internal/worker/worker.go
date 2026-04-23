@@ -3,6 +3,7 @@ package worker
 import (
 	"task-service/internal/models"
 	// "task-service/internal/metrics"
+	"task-service/internal/kafka"
 	"fmt"
 	"log"
 	"math/rand"
@@ -27,10 +28,11 @@ type Worker struct {
 	Repo TaskRepository
 	Queue TaskQueue
 	notifier Notifier
+	producer *kafka.TaskEventProducer
 }
 
-func NewWorker(id int, repo TaskRepository, queue TaskQueue, n Notifier) *Worker {
-	return &Worker{ID: id, Repo: repo, Queue: queue, notifier: n}
+func NewWorker(id int, repo TaskRepository, queue TaskQueue, n Notifier, producer *kafka.TaskEventProducer) *Worker {
+	return &Worker{ID: id, Repo: repo, Queue: queue, notifier: n, producer: producer}
 }
 
 func (w *Worker) Start(ctx context.Context) {
@@ -86,6 +88,17 @@ func (w *Worker) Start(ctx context.Context) {
 					// 	Status:    "completed",
 					// 	Timestamp: end,
 					// })
+
+					if w.producer != nil {
+					go func() {
+							kafkaCtx := context.Background()
+							err := w.producer.PublishTaskEvent(kafkaCtx, "COMPLETED",
+								int32(task.ID), task.Text, "completed", task.UserID)
+							if err != nil {
+								log.Printf("[Worker %d] Failed to publish COMPLETED event: %v", w.ID, err)
+							}
+						}()
+					}
 
 					log.Printf("[Worker %d] Completed task processing #%d (%s) at %v\n", w.ID, task.ID, task.Text, end)
 					fmt.Println("----------------------------------------")
