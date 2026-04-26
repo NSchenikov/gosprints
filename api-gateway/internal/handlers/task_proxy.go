@@ -4,6 +4,8 @@ import (
     "encoding/json"
     "net/http"
     "strconv"
+    "strings"
+    "log"
     
     "api-gateway/internal/grpc/client"
 )
@@ -196,5 +198,86 @@ func (h *TaskProxyHandler) SearchTasks(w http.ResponseWriter, r *http.Request) {
         "total":     total,
         "page":      page,
         "page_size": pageSize,
+    })
+}
+
+// CloseTask - закрытие задачи
+func (h *TaskProxyHandler) CloseTask(w http.ResponseWriter, r *http.Request) {
+    log.Println("[CloseTask] Called")
+    
+    userID := r.Context().Value("user_id").(string)
+    log.Printf("[CloseTask] UserID: %s", userID)
+    
+    // Извлекаем ID из URL /tasks/{id}/close
+    idStr := strings.TrimPrefix(r.URL.Path, "/tasks/")
+    idStr = strings.TrimSuffix(idStr, "/close")
+    log.Printf("[CloseTask] ID string: %s", idStr)
+    
+    id, err := strconv.Atoi(idStr)
+    if err != nil {
+        log.Printf("[CloseTask] Invalid ID: %v", err)
+        http.Error(w, "Invalid task ID", http.StatusBadRequest)
+        return
+    }
+    log.Printf("[CloseTask] Task ID: %d", id)
+    
+    // Получаем задачу
+    task, err := h.taskClient.GetTask(r.Context(), int32(id))
+    if err != nil {
+        log.Printf("[CloseTask] GetTask error: %v", err)
+        http.Error(w, "Task not found", http.StatusNotFound)
+        return
+    }
+    log.Printf("[CloseTask] Task status: %s, UserID: %s", task.GetStatus(), task.GetUserId())
+    
+    if task.GetUserId() != userID {
+        log.Printf("[CloseTask] Forbidden: user %s != %s", userID, task.GetUserId())
+        http.Error(w, "Forbidden", http.StatusForbidden)
+        return
+    }
+    
+    if task.GetStatus() != "READY_FOR_CLOSURE" {
+        log.Printf("[CloseTask] Wrong status: %s", task.GetStatus())
+        http.Error(w, "Task not ready for closure", http.StatusBadRequest)
+        return
+    }
+    
+    updatedTask, err := h.taskClient.UpdateTask(r.Context(), int32(id), task.GetText(), "CLOSED")
+    if err != nil {
+        log.Printf("[CloseTask] UpdateTask error: %v", err)
+        http.Error(w, "Failed to close task", http.StatusInternalServerError)
+        return
+    }
+    
+    log.Printf("[CloseTask] Task %d closed successfully", id)
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(map[string]interface{}{
+        "id":     updatedTask.GetId(),
+        "status": updatedTask.GetStatus(),
+        "closed": true,
+    })
+}
+
+// GetUserTasks - список задач пользователя
+func (h *TaskProxyHandler) GetUserTasks(w http.ResponseWriter, r *http.Request) {
+    // Извлекаем user_id из URL
+    userID := strings.TrimPrefix(r.URL.Path, "/users/")
+    userID = strings.TrimSuffix(userID, "/tasks")
+    
+    if userID == "" {
+        http.Error(w, "user_id is required", http.StatusBadRequest)
+        return
+    }
+    
+    tasks, total, err := h.taskClient.ListTasks(r.Context(), userID, "", 1, 100)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(map[string]interface{}{
+        "tasks": tasks,
+        "total": total,
     })
 }

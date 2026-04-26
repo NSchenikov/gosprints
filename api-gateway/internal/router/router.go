@@ -21,6 +21,8 @@ func NewRouter(taskProxy *handlers.TaskProxyHandler, authHandler *handlers.AuthH
     r.Handle("PUT /tasks/{id}",  middleware.AuthMiddleware(taskProxy.UpdateTask))
     r.Handle("DELETE /tasks/{id}", middleware.AuthMiddleware(taskProxy.DeleteTask))
     r.HandleFunc("GET /tasks/search", middleware.AuthMiddleware(taskProxy.SearchTasks))
+    r.HandleFunc("POST /tasks/{id}/close", middleware.AuthMiddleware(taskProxy.CloseTask))
+    r.HandleFunc("GET /users/{user_id}/tasks", middleware.AuthMiddleware(taskProxy.GetUserTasks))
 
     //метрики и кэш пока оставлю закомментированными
     // r.HandleFunc("GET /admin/cache/stats", cacheHandler.GetCacheStats)

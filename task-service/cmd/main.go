@@ -15,9 +15,9 @@ import (
     "task-service/database"
     "task-service/internal/repositories"
     // "task-service/internal/handlers"
-    "task-service/internal/worker"
-    qpkg "task-service/internal/queue"
-    "task-service/internal/scheduler"
+    // "task-service/internal/worker"
+    // qpkg "task-service/internal/queue"
+    // "task-service/internal/scheduler"
     "task-service/internal/cache"
     "task-service/internal/grpc/task/client"
 	"task-service/internal/grpc/task/server"
@@ -45,7 +45,7 @@ func main() {
     //обернули в кэширующий репозиторий
     // taskRepo := repositories.NewTaskCacheRepository(baseTaskRepo, appCache)
     apiTaskRepo := repositories.NewTaskCacheRepository(baseTaskRepo, appCache)
-    workerTaskRepo := baseTaskRepo
+    // workerTaskRepo := baseTaskRepo
 
     var kafkaProducer *kafka.TaskEventProducer
     if os.Getenv("KAFKA_BROKERS") != "" {
@@ -58,7 +58,7 @@ func main() {
         log.Println("[main] KAFKA_BROKERS not set, producer disabled")
     }
 
-    queue := qpkg.NewTaskQueue(100)
+    // queue := qpkg.NewTaskQueue(100)
 
     ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
     defer stop()
@@ -66,16 +66,16 @@ func main() {
     // hub := ws.NewNotificationHub()
     // notifier := ws.NewWSNotifier(hub)
 
-    for i := 1; i <= 3; i++ {
-		w := worker.NewWorker(i, workerTaskRepo, queue, nil, kafkaProducer) // notifier будет работать через Kafka
-		w.Start(ctx)
-	}
+    // for i := 1; i <= 3; i++ {
+	// 	w := worker.NewWorker(i, workerTaskRepo, queue, nil, kafkaProducer) // notifier будет работать через Kafka
+	// 	w.Start(ctx)
+	// }
+
+    // dispatcher := scheduler.NewDispatcher(workerTaskRepo, queue, 30*time.Second)
+    // dispatcher.Start(ctx)
 
     stateMachine := statemachine.NewTaskStateMachine(baseTaskRepo, kafkaProducer)
     go stateMachine.Start(ctx)
-
-    dispatcher := scheduler.NewDispatcher(workerTaskRepo, queue, 30*time.Second)
-    dispatcher.Start(ctx)
 
     // Kafka producer (с событиями)
     // kafkaProducer := kafka.NewTaskEventProducer(

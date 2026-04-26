@@ -53,10 +53,8 @@ func (r *taskRepository) GetAll(ctx context.Context) ([]models.Task, error) {
 }
 
 func (r *taskRepository) GetByStatus(ctx context.Context, status string) ([]models.Task, error) {
-    query := `SELECT id, text, status, created_at, started_at, ended_at, user_id
-              FROM "Tasks"
-              WHERE status = $1
-              ORDER BY id`
+    query := `SELECT id, user_id, text, status, created_at, started_at, ended_at, updated_at, attempts 
+              FROM "Tasks" WHERE status = $1 ORDER BY id`
 
     rows, err := r.db.QueryContext(ctx, query, status)
     if err != nil {
@@ -69,18 +67,25 @@ func (r *taskRepository) GetByStatus(ctx context.Context, status string) ([]mode
     var t models.Task
     var startedAt sql.NullTime
     var endedAt   sql.NullTime
+    var updatedAt time.Time  
+    var attempts int          
 
     if err := rows.Scan(
         &t.ID,
+        &t.UserID,
         &t.Text,
         &t.Status,
         &t.CreatedAt,
         &startedAt,
         &endedAt,
-        &t.UserID,
+        &updatedAt,
+        &attempts,
     ); err != nil {
         return nil, err
     }
+
+    t.UpdatedAt = updatedAt
+    t.Attempts = attempts
 
     if startedAt.Valid {
         t.StartedAt = &startedAt.Time
@@ -170,7 +175,7 @@ func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
     query := `UPDATE "Tasks"
               SET text = $1,
               status = $2,
-              updatedAt = NOW()
+              updated_at = NOW()
               WHERE id = $3`
 
     _, err := r.db.ExecContext(ctx, query, task.Text, task.Status, task.ID)

@@ -4,6 +4,7 @@ ALTER TABLE "Tasks" ADD COLUMN attempts INT DEFAULT 0;
 ALTER TABLE "Tasks" ADD COLUMN validation1_at TIMESTAMP;
 ALTER TABLE "Tasks" ADD COLUMN validation2_at TIMESTAMP;
 ALTER TABLE "Tasks" ADD COLUMN closed_at TIMESTAMP;
+ALTER TABLE "Tasks" ADD COLUMN updated_at TIMESTAMP;
 
 ЗАПУСК ПРОЕКТА:
 Установить и запустить Docker

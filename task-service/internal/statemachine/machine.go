@@ -48,22 +48,42 @@ func (sm *TaskStateMachine) Stop() {
 }
 
 func (sm *TaskStateMachine) processTasks(ctx context.Context) {
-    // Обработка задачи в WAITING_FOR_VALIDATION_2
+    log.Println("[StateMachine] Checking tasks...")
+    
+    // Сначала переводим NEW → VALIDATION_1 → WAITING_FOR_VALIDATION_2
+    newTasks, err := sm.repo.GetByStatus(ctx, models.TaskStatusNew)
+    if err != nil {
+        log.Printf("[StateMachine] Error fetching NEW tasks: %v", err)
+    }
+    
+    log.Printf("[StateMachine] Found %d tasks in NEW", len(newTasks))
+    
+    for _, task := range newTasks {
+        log.Printf("[StateMachine] Task %d: NEW → VALIDATION_1", task.ID)
+        sm.repo.UpdateStatus(ctx, task.ID, models.TaskStatusValidation1, nil, nil)
+        
+        log.Printf("[StateMachine] Task %d: VALIDATION_1 → WAITING_FOR_VALIDATION_2", task.ID)
+        sm.repo.UpdateStatus(ctx, task.ID, models.TaskStatusWaitingForValidation2, nil, nil)
+    }
+    
+    // Теперь обрабатываем задачи в WAITING_FOR_VALIDATION_2
     waitingTasks, err := sm.repo.GetByStatus(ctx, models.TaskStatusWaitingForValidation2)
     if err != nil {
         log.Printf("[StateMachine] Error fetching waiting tasks: %v", err)
         return
     }
     
+    log.Printf("[StateMachine] Found %d tasks in WAITING_FOR_VALIDATION_2", len(waitingTasks))
+    
     for _, task := range waitingTasks {
-        // Проверяем, не зависла ли задача дольше чем на 60 минут
+        // проверяем, не зависла ли задача (больше 60 минут)
         if time.Since(task.CreatedAt) > 60*time.Minute {
             log.Printf("[StateMachine] Task %d expired, deleting", task.ID)
             sm.repo.Delete(ctx, task.ID)
             continue
         }
         
-        // Проверяем попытки attempts
+        // проверяем попытки
         if task.Attempts >= 3 {
             log.Printf("[StateMachine] Task %d failed after %d attempts", task.ID, task.Attempts)
             sm.repo.UpdateStatus(ctx, task.ID, models.TaskStatusFailed, nil, nil)
@@ -71,7 +91,7 @@ func (sm *TaskStateMachine) processTasks(ctx context.Context) {
             continue
         }
         
-        // Пробуем валидацию
+        // пробуем валидацию
         success := sm.performValidation2(ctx, &task)
         
         if success {
@@ -80,8 +100,7 @@ func (sm *TaskStateMachine) processTasks(ctx context.Context) {
             sm.sendNotification(ctx, &task, "TASK_READY", "Task ready for closure")
         } else {
             sm.repo.IncrementAttempts(ctx, task.ID)
-            log.Printf("[StateMachine] Task %d validation failed, attempt %d/%d", 
-                task.ID, task.Attempts+1, 3)
+            log.Printf("[StateMachine] Task %d validation failed, attempt %d/3", task.ID, task.Attempts+1)
         }
     }
     
@@ -102,10 +121,8 @@ func (sm *TaskStateMachine) processTasks(ctx context.Context) {
 }
 
 func (sm *TaskStateMachine) performValidation2(ctx context.Context, task *models.Task) bool {
-    // TODO: Валидация, есть ли свободные воркеры?
-    // Можно проверить очередь или количество активных воркеров
     // Демо вариант: успех с вероятностью 70%
-    return time.Now().UnixNano()%10 < 7 //
+    return time.Now().UnixNano()%10 < 7
 }
 
 func (sm *TaskStateMachine) sendNotification(ctx context.Context, task *models.Task, eventType, message string) {
