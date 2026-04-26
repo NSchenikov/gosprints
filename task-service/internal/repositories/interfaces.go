@@ -16,4 +16,5 @@ type TaskRepository interface {
 	Delete(ctx context.Context, id int) error
 	List(ctx context.Context, filter TaskFilter) ([]models.Task, int, error)
 	Search(ctx context.Context, query, userID string, page, limit int) ([]models.Task, int, error)
+	IncrementAttempts(ctx context.Context, id int) error
 }

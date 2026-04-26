@@ -108,6 +108,7 @@ func (r *taskRepository) UpdateStatus(
 ) error {
 	query := `UPDATE "Tasks"
 	          SET status = $1,
+                  updated_at = NOW(),
 	              started_at = $2,
 	              ended_at = $3
 	          WHERE id = $4`
@@ -150,27 +151,29 @@ func (r *taskRepository) GetByID(ctx context.Context, id int) (*models.Task, err
 }
 
 func (r *taskRepository) Create(ctx context.Context, task *models.Task) (int, error) {
-		query := `INSERT INTO "Tasks" (text, status, user_id, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id, created_at`
+		query := `INSERT INTO "Tasks" (text, status, user_id, created_at, updated_at, attempts) VALUES ($1, $2, $3, NOW(), NOW(), 0) RETURNING id`
         var id int
-        var createdAt time.Time
 
-		err := r.db.QueryRowContext(ctx, query, task.Text, task.Status, task.UserID).Scan(&id, &createdAt)
+		err := r.db.QueryRowContext(ctx, query, task.Text, task.Status, task.UserID).Scan(&id)
         if err != nil {
             return 0, err
         }
 
 		task.ID = id
-        task.CreatedAt = createdAt
+        task.CreatedAt = time.Now()
+        task.UpdatedAt = time.Now()
 
 		return id, nil
 }
 
 func (r *taskRepository) Update(ctx context.Context, task *models.Task) error {
     query := `UPDATE "Tasks"
-              SET text = $1
-              WHERE id = $2`
+              SET text = $1,
+              status = $2,
+              updatedAt = NOW()
+              WHERE id = $3`
 
-    _, err := r.db.ExecContext(ctx, query, task.Text, task.ID)
+    _, err := r.db.ExecContext(ctx, query, task.Text, task.Status, task.ID)
     return err
 }
 
@@ -346,4 +349,11 @@ func (r *taskRepository) Search(ctx context.Context, query, userID string, page,
     }
     
     return tasks, total, nil
+}
+
+// IncrementAttempts увеличивает счётчик попыток валидации задачи
+func (r *taskRepository) IncrementAttempts(ctx context.Context, id int) error {
+    query := `UPDATE "Tasks" SET attempts = attempts + 1, updated_at = NOW() WHERE id = $1`
+    _, err := r.db.ExecContext(ctx, query, id)
+    return err
 }

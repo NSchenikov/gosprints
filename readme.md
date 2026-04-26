@@ -1,4 +1,9 @@
 файлы БД для postgresql можно взять тут https://disk.yandex.ru/d/sa3wbixqpbejRA
+Для работы state machine добавить в базу:
+ALTER TABLE "Tasks" ADD COLUMN attempts INT DEFAULT 0;
+ALTER TABLE "Tasks" ADD COLUMN validation1_at TIMESTAMP;
+ALTER TABLE "Tasks" ADD COLUMN validation2_at TIMESTAMP;
+ALTER TABLE "Tasks" ADD COLUMN closed_at TIMESTAMP;
 
 ЗАПУСК ПРОЕКТА:
 Установить и запустить Docker
@@ -30,7 +35,8 @@ docker run -d --name zookeeper \
  -e ZOOKEEPER_CLIENT_PORT=2181 \
  confluentinc/cp-zookeeper:6.2.0
 
-ждем sleep 10
+ждем
+sleep 10
 
 docker run -d --name kafka \
  --platform linux/amd64 \
@@ -42,7 +48,8 @@ docker run -d --name kafka \
  -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 \
  confluentinc/cp-kafka:6.2.0
 
-ждем sleep 20
+ждем
+sleep 20
 
 # проверяем работоспособность
 
@@ -52,7 +59,7 @@ docker ps
 
 docker exec kafka kafka-topics --create --topic task-events --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
 
-# еще раз проверяем, должеть быть task-events
+# еще раз проверяем, должен быть task-events
 
 docker exec kafka kafka-topics --list --bootstrap-server 127.0.0.1:9092
 

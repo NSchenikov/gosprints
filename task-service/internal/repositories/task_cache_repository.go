@@ -331,3 +331,17 @@ func (r *TaskCacheRepository) Search(ctx context.Context, query, userID string, 
     return r.baseRepo.Search(ctx, query, userID, page, limit)
 }
 // var _ services.TaskRepository = (*TaskCacheRepository)(nil)
+
+// IncrementAttempts увеличивает счётчик попыток attempts и инвалидирует кэш
+func (r *TaskCacheRepository) IncrementAttempts(ctx context.Context, id int) error {
+    // Сначала обновляем в базе
+    err := r.baseRepo.IncrementAttempts(ctx, id)
+    if err != nil {
+        return err
+    }
+    
+    // Инвалидируем кэш задачи
+    go r.invalidateTaskCache(context.Background(), id, nil)
+    
+    return nil
+}

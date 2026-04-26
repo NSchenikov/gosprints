@@ -236,3 +236,50 @@ func (h *TaskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 		"id":      id,
 	})
 }
+
+// CloseTask - закрытие задачи (POST /tasks/{id}/close)
+func (h *TaskHandler) CloseTask(w http.ResponseWriter, r *http.Request) {
+    userID := auth.GetUserFromJWT(r)
+    idStr := strings.TrimPrefix(r.URL.Path, "/tasks/")
+    idStr = strings.TrimSuffix(idStr, "/close")
+    id, _ := strconv.Atoi(idStr)
+    
+    task, err := h.taskClient.GetTask(r.Context(), int32(id))
+    if err != nil {
+        http.Error(w, "Task not found", http.StatusNotFound)
+        return
+    }
+    
+    if task.GetUserId() != userID {
+        http.Error(w, "Forbidden", http.StatusForbidden)
+        return
+    }
+    
+    if task.GetStatus() != models.TaskStatusReadyForClosure {
+        http.Error(w, "Task not ready for closure", http.StatusBadRequest)
+        return
+    }
+    
+    _, err = h.taskClient.UpdateTask(r.Context(), int32(id), task.GetText(), models.TaskStatusClosed)
+    if err != nil {
+        http.Error(w, "Failed to close task", http.StatusInternalServerError)
+        return
+    }
+    
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(map[string]string{"status": "closed"})
+}
+
+// GetUserTasks - список задач пользователя (GET /users/{user_id}/tasks)
+func (h *TaskHandler) GetUserTasks(w http.ResponseWriter, r *http.Request) {
+    userID := strings.TrimPrefix(r.URL.Path, "/users/")
+    userID = strings.TrimSuffix(userID, "/tasks")
+    
+    tasks, _, err := h.taskClient.ListTasks(r.Context(), userID, "", 1, 100)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    
+    json.NewEncoder(w).Encode(tasks)
+}

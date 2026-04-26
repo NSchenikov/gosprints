@@ -22,6 +22,7 @@ import (
     "task-service/internal/grpc/task/client"
 	"task-service/internal/grpc/task/server"
     "task-service/internal/kafka" //kafka из текущего сервиса
+    "task-service/internal/statemachine"
 )
 
 func main() {
@@ -69,6 +70,9 @@ func main() {
 		w := worker.NewWorker(i, workerTaskRepo, queue, nil, kafkaProducer) // notifier будет работать через Kafka
 		w.Start(ctx)
 	}
+
+    stateMachine := statemachine.NewTaskStateMachine(baseTaskRepo, kafkaProducer)
+    go stateMachine.Start(ctx)
 
     dispatcher := scheduler.NewDispatcher(workerTaskRepo, queue, 30*time.Second)
     dispatcher.Start(ctx)
