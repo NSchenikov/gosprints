@@ -345,3 +345,30 @@ func (r *TaskCacheRepository) IncrementAttempts(ctx context.Context, id int) err
     
     return nil
 }
+
+// GetActiveTasksCount возвращает количество активных задач пользователя
+func (r *TaskCacheRepository) GetActiveTasksCount(ctx context.Context, userID string) (int, error) {
+    cacheKey := fmt.Sprintf("active_tasks:%s", userID)
+    
+    // Пробуем получить из кэша
+    cached, err := r.cache.Get(ctx, cacheKey)
+    if err == nil && cached != nil {
+        var count int
+        if err := json.Unmarshal(cached, &count); err == nil {
+            return count, nil
+        }
+    }
+    
+    // Если нет в кэше, идём в базовый репозиторий
+    count, err := r.baseRepo.GetActiveTasksCount(ctx, userID)
+    if err != nil {
+        return 0, err
+    }
+    
+    // Сохраняем в кэш (на короткое время, так как данные меняются часто)
+    data, _ := json.Marshal(count)
+    r.cache.Set(ctx, cacheKey, data, 30*time.Second)
+    
+    return count, nil
+	//TODO: настроить инвалидацию кэша в части активных задач пользователя. Задача после state machine по БД получает статус READY_FOR_CLOSURE, а при запросе с кэша получаю ответ, что статус задачи NEW
+}

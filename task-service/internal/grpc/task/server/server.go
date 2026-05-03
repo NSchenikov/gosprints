@@ -30,10 +30,17 @@ func NewTaskServer(repo repositories.TaskRepository, producer *kafka.TaskEventPr
 }
 
 func (s *TaskServer) CreateTask(ctx context.Context, req *pb.CreateTaskRequest) (*pb.CreateTaskResponse, error) {
+
+	status := req.GetStatus()
+    if status == "" {
+        status = models.TaskStatusNew  // "NEW" по умолчанию
+    }
+
 	task := &models.Task{
 		Text:   req.GetText(),
 		UserID: req.GetUserId(),
-		Status: "pending",
+		Status: status,
+        Attempts: 0,
 	}
 
 	id, err := s.repo.Create(ctx, task)

@@ -63,7 +63,7 @@ func (h *TaskProxyHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
         return
     }
     
-    task, err := h.taskClient.CreateTask(r.Context(), req.Text, userID)
+    task, err := h.taskClient.CreateTaskWithStatus(r.Context(), req.Text, userID, "NEW")
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return

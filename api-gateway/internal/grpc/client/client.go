@@ -107,3 +107,15 @@ func (c *TaskClient) SearchTasks(ctx context.Context, query, userID string, page
     }
     return resp.GetTasks(), resp.GetTotal(), nil
 }
+
+func (c *TaskClient) CreateTaskWithStatus(ctx context.Context, text, userID, status string) (*pb.Task, error) {
+    resp, err := c.client.CreateTask(ctx, &pb.CreateTaskRequest{
+        Text:   text,
+        UserId: userID,
+        Status: status,
+    })
+    if err != nil {
+        return nil, err
+    }
+    return resp.GetTask(), nil
+}

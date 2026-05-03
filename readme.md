@@ -6,6 +6,8 @@ ALTER TABLE "Tasks" ADD COLUMN validation2_at TIMESTAMP;
 ALTER TABLE "Tasks" ADD COLUMN closed_at TIMESTAMP;
 ALTER TABLE "Tasks" ADD COLUMN updated_at TIMESTAMP;
 
+структура БД для PostgreSQL лежит в корне проекта
+
 ЗАПУСК ПРОЕКТА:
 Установить и запустить Docker
 
@@ -158,3 +160,45 @@ curl -H "Authorization: Bearer $TOKEN" "http://localhost:8080/tasks/search?q=м�
 # 5. WebSocket (в отдельном терминале)
 
 wscat -c "ws://localhost:8082/ws?user_id=user1"
+
+# Проверка state machine
+
+создаем задачу для state machine через API
+
+curl -X POST http://localhost:8080/tasks \
+ -H "Authorization: Bearer $TOKEN" \
+ -H "Content-Type: application/json" \
+ -d '{"text":"Тест полной state machine"}'
+
+проверить статус
+psql -h localhost -p 8000 -U postgres -d gosprints -c "SELECT id, status, attempts FROM \"Tasks\" ORDER BY id DESC LIMIT 3;"
+(должен быть NEW)
+
+в терминале task-service появятся логи с пометкой state machine
+
+проверяем статус снова
+psql -h localhost -p 8000 -U postgres -d gosprints -c "SELECT id, status, attempts FROM \"Tasks\" ORDER BY id DESC LIMIT 3;"
+(должен быть READY_FOR-CLOSURE)
+
+//далее закрыть задачу
+
+Получите ID задачи
+
+TASK_ID=$(psql -h localhost -p 8000 -U postgres -d gosprints -t -c "SELECT id FROM \"Tasks\" WHERE status = 'READY_FOR_CLOSURE' ORDER BY id DESC LIMIT 1;" | xargs)
+
+Закройте
+
+curl -X POST http://localhost:8080/tasks/$TASK_ID/close \
+ -H "Authorization: Bearer $TOKEN"
+
+проверить финальный статус
+psql -h localhost -p 8000 -U postgres -d gosprints -c "SELECT id, status FROM \"Tasks\" WHERE id = $TASK_ID;"
+(и вот тут должен быть CLOSED)
+
+# проверить аналитику еще раз
+
+docker exec -it clickhouse clickhouse-client --query "
+SELECT user_id, tasks_completed, avg_completion_time
+FROM analytics.task_analytics FINAL
+WHERE user_id = 'testuser'
+"

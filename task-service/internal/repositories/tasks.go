@@ -362,3 +362,12 @@ func (r *taskRepository) IncrementAttempts(ctx context.Context, id int) error {
     _, err := r.db.ExecContext(ctx, query, id)
     return err
 }
+
+func (r *taskRepository) GetActiveTasksCount(ctx context.Context, userID string) (int, error) {
+    query := `SELECT COUNT(*) FROM "Tasks" 
+              WHERE user_id = $1 
+              AND status IN ('NEW', 'VALIDATION_1', 'WAITING_FOR_VALIDATION_2', 'VALIDATION_2', 'READY_FOR_CLOSURE')`
+    var count int
+    err := r.db.QueryRowContext(ctx, query, userID).Scan(&count)
+    return count, err
+}
